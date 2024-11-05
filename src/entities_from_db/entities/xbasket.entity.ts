@@ -21,7 +21,6 @@ export class Xbasket {
   @ManyToOne(() => Xitem, (xitem) => xitem.xbaskets)
   @JoinColumn([
     { name: "xitem", referencedColumnName: "xitem" },
-    { name: "xitem", referencedColumnName: "xitem" },
   ])
   xitem: Xitem;
 }

@@ -144,7 +144,6 @@ export class Xdocline {
   })
   @JoinColumn([
     { name: "xitem", referencedColumnName: "xitem" },
-    { name: "xitem", referencedColumnName: "xitem" },
   ])
   xitem2: Xitem;
 

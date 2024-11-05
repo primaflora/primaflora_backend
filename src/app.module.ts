@@ -23,9 +23,8 @@ import { XitemModule } from './xitem/xitem.module';
     imports: [
         ConfigModule.forRoot({
             validationSchema: Joi.object({
-                PORT: Joi.number().required().default(5000),
+                PORT: Joi.number().default(5000),
                 CORS_ORIGIN: Joi.string()
-                    .required()
                     .default('http://localhost:3000'),
             }),
             isGlobal: true,

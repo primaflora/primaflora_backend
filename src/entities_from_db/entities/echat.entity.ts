@@ -12,7 +12,7 @@ import { Account } from "./account.entity";
 @Index("pk_echat", ["echat"], { unique: true })
 @Entity("echat", { schema: "nlife" })
 export class Echat {
-  @Column("uuid", { primary: true, name: "echat", default: () => "_newid()" })
+  @Column("uuid", { primary: true, name: "echat" })
   echat: string;
 
   @Column("timestamp without time zone", {
