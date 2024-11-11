@@ -8,7 +8,7 @@ export class VerificationEntity extends AbstractEntity {
     public code: string;
 
     @JoinColumn({ name: 'user_id' })
-    @OneToOne(() => UserEntity, user => user.id)
+    @OneToOne(() => UserEntity, user => user.id, { onDelete: 'CASCADE' })
     public user: UserEntity;
 
     @Column({ type: 'timestamptz' })

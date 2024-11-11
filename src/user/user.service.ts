@@ -81,6 +81,12 @@ export class UserService {
         }
     }
 
+    public async findOneByEmail(email: string){
+        return await this.userRepository.findOne({
+            where: { email },
+        });
+    }
+
     public async findOneByInviteCode(invitationCode: string) {
         try {
             return await this.userRepository.findOneOrFail({
@@ -93,6 +99,19 @@ export class UserService {
             );
         }
     }
+    
+    public async deleteByUUID(uuid: string){
+        try{
+            return await this.userRepository.delete({
+                "uuid": uuid
+            });
+        } catch (error){
+            console.log(error)
+            throw new BadRequestException(
+                `User`
+            );
+        }
+    }
 
     public async updateUser(token: string, updateUser: UpdateUserDto) {
         const payload = this.tokenService.verifyToken(token, 'access');
@@ -100,11 +119,7 @@ export class UserService {
     }
 
     private generateSixDigitCode() {
-        let code = '';
-        for (let i = 0; i < 6; i++) {
-            code += Math.floor(Math.random() * 10);
-        }
-        return code;
+        return `${Math.floor(Math.random() * (999999 - 100000) + 100000)}`;
     }
 
     public async createVerificationCode(user: UserEntity) {

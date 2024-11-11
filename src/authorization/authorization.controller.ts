@@ -52,6 +52,11 @@ export class AuthorizationController {
 
         console.log({ access: result.accessToken });
     }
+    
+    @Get('/email-is-free/:email')
+    public async EmaiIsFree(@Param('email') email: string) {
+        return this.authorizationService.EmailIsFree(email);
+    }
 
     @Get('/verifyInviteCode/:inviteCode')
     public async verifyInviteCode(@Param('inviteCode') inviteCode: string) {

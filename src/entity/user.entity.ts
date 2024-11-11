@@ -43,10 +43,10 @@ export class UserEntity extends AbstractEntity {
     @Column('boolean', { nullable: true })
     public consultation_allowed: boolean;
 
-    @OneToMany(() => CartEntity, cart => cart.user)
+    @OneToMany(() => CartEntity, cart => cart.user, { onDelete: 'CASCADE' })
     public cart: CartEntity[];
 
-    @OneToMany(() => LikeEntity, like => like.user)
+    @OneToMany(() => LikeEntity, like => like.user, { onDelete: 'CASCADE' })
     public likes: LikeEntity[];
 
     @ManyToOne(() => RoleEntity)

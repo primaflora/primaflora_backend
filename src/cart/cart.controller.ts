@@ -7,6 +7,7 @@ import {
     Post,
     Req,
     UsePipes,
+    Patch
 } from '@nestjs/common';
 import { Request } from 'express';
 import { TokenService } from '../token/token.service';
@@ -14,6 +15,7 @@ import { CartService } from './cart.service';
 import { CreateCartDto } from './dto/create-cart.dto';
 import { ValidateLanguagePipe } from 'src/common/pipes/accept-language.pipe';
 import { AcceptLanguage } from 'src/common/decorators/accept-language.decorator';
+import { UpdateCartDto } from './dto/update-cart.dto';
 
 @Controller('cart')
 export class CartController {
@@ -38,13 +40,13 @@ export class CartController {
         return this.cartService.findAll(userFromToken.uuid, language);
     }
 
-    // @Patch('/:cartItemUuid')
-    // update(
-    //     @Param('cartItemUuid') cartItemId: string,
-    //     @Body() updateCartDto: UpdateCartDto
-    // ) {
-    //     return this.cartService.update(cartItemId, updateCartDto);
-    // }
+    @Patch('/:cartItemUuid')
+    update(
+        @Param('cartItemUuid') cartItemId: string,
+        @Body() updateCartDto: UpdateCartDto
+    ) {
+        return this.cartService.update(cartItemId, updateCartDto);
+    }
 
     @Delete('/:uuid')
     remove(@Param('uuid') uuid: string) {

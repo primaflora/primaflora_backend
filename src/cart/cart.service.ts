@@ -5,6 +5,7 @@ import { CartEntity } from '../entity/cart.entity';
 import { ProductsService } from '../products/products.service';
 import { UserService } from '../user/user.service';
 import { CreateCartDto } from './dto/create-cart.dto';
+import { UpdateCartDto } from './dto/update-cart.dto';
 
 @Injectable()
 export class CartService {
@@ -90,13 +91,13 @@ export class CartService {
             .execute();
     }
 
-    // async update(cartItemId: string, changes: UpdateCartDto) {
-    //     return await this.cartRepository
-    //         .createQueryBuilder()
-    //         .update({ quantity: changes.quantity })
-    //         .where('uuid = :cartItemId', { cartItemId })
-    //         .execute();
-    // }
+    async update(cartItemId: string, changes: UpdateCartDto) {
+        return await this.cartRepository
+            .createQueryBuilder('cart')
+            .update({ quantity: changes.quantity })
+            .where('uuid = :cartItemId', { cartItemId })
+            .execute();
+    }
 
     async remove(uuid: string) {
         return await this.cartRepository.delete({ uuid });

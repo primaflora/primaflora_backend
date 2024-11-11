@@ -8,6 +8,7 @@ import {
     Query,
     Req,
     UseGuards,
+    Delete
 } from '@nestjs/common';
 import { AuthGuard } from '../common/guards/auth.guard';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -43,6 +44,16 @@ export class UserController {
         return await this.userService.findOneByIdAndLoadInvitedUser(uuid);
     }
 
+    @Get('all')
+    public async getAllUsers() {
+        return this.userService.getAllUsers();
+    }
+
+    @Get('test')
+    public getTest() {
+        return 'Hello world!';
+    }
+
     @Patch()
     @UseGuards(AuthGuard)
     public async updateUser(
@@ -53,18 +64,15 @@ export class UserController {
         return await this.userService.updateUser(token, updateUser);
     }
 
-    @Get('all')
-    public async getAllUsers() {
-        return this.userService.getAllUsers();
-    }
-
+   
     @Post('activate/:code')
     public async activateUser(@Param('code') code: string) {
         return await this.userService.activate(code);
     }
 
-    @Get('test')
-    public getTest() {
-        return 'Hello world!';
+    @Delete('delete/:uuid')
+    @UseGuards(AuthGuard)
+    public async deleteUser(@Param('uuid') uuid: string){
+        return await this.userService.deleteByUUID(uuid);
     }
 }

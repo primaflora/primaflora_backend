@@ -33,6 +33,7 @@ export class AuthorizationService {
     }
 
     public async signUp(signUpDto: SignUpDto) {
+    
         this.comparePasswords(signUpDto.password1, signUpDto.password2);
 
         const role = await this.roleService.findOne(EUserRole.USER);
@@ -101,6 +102,21 @@ export class AuthorizationService {
 
         const tokens = this.tokenService.generateTokens({ ...user });
         return { ...tokens, user };
+    }
+
+    public async EmailIsFree(email: string){
+        if(await this.userService.findOneByEmail(email)){
+            return {
+                "message": "That email in use!",
+                "statusCode": 403
+            }
+        } else{
+            return {
+                "message": "Email is free!",
+                "statusCode": 200
+            }
+        }
+        return {"ops": email}
     }
 
     public async refreshToken(oldToken: string) {
