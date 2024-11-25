@@ -72,7 +72,7 @@ export class UserController {
 
     @Delete('delete/:uuid')
     @UseGuards(AuthGuard)
-    public async deleteUser(@Param('uuid') uuid: string){
-        return await this.userService.deleteByUUID(uuid);
+    public async deleteUser(@Param('uuid') uuid: string, @Body() password:  string){
+        return await this.userService.delete(uuid, password);
     }
 }

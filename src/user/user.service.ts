@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { hash } from 'bcrypt';
+import { compare, hash } from 'bcrypt';
 import { VerificationEntity } from 'src/entity/verification.entity';
 import { Repository } from 'typeorm';
 import { UserEntity } from '../entity/user.entity';
@@ -37,6 +37,18 @@ export class UserService {
 
     public async save(user: UserEntity) {
         return await this.userRepository.save(user);
+    }
+
+
+    public async delete(uuid: string, password: string){
+        let user = await this.findOneById(uuid);
+        if(await compare(password, user.password))
+        {
+            throw new BadRequestException(
+                `passwords are not same`
+            );     
+        }
+        return await this.deleteByUUID(uuid)
     }
 
     public async findOneByToken(token: string, loadInvitedUser?: boolean) {
