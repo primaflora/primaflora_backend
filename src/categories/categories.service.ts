@@ -8,6 +8,7 @@ import { TokenService } from 'src/token/token.service';
 import { SubcategoryDto } from './dto/subcategory.dto';
 import { SubcategoryTranslateEntity } from 'src/entity/subcategory_t.entity';
 import { ProductDto } from 'src/products/dto/product.dto';
+import { CreateCategoryDto } from './dto/create-category.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -21,6 +22,11 @@ export class CategoriesService {
         private readonly likeService: LikeService,
         private readonly tokenService: TokenService
     ) {}
+
+    public async createCategory(categoryData: CreateCategoryDto): Promise<CategoryEntity> {
+        const newCategory = this.categoryRepository.create(categoryData);
+        return await this.categoryRepository.save(newCategory);
+    }
 
     public async createSubcategory(subcategory: SubcategoryDto) {
         const parent = await this.categoryRepository.findOneOrFail({

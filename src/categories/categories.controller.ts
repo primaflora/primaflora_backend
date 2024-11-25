@@ -13,6 +13,7 @@ import { AcceptLanguage } from 'src/common/decorators/accept-language.decorator'
 import { ValidateLanguagePipe } from 'src/common/pipes/accept-language.pipe';
 import { CategoriesService } from './categories.service';
 import { SubcategoryDto } from './dto/subcategory.dto';
+import { CreateCategoryDto } from './dto/create-category.dto';
 
 @Controller('categories')
 export class CategoriesController {
@@ -45,6 +46,11 @@ export class CategoriesController {
             language,
             token
         );
+    }
+
+    @Post()
+    async createCategory(@Body() categoryData: CreateCategoryDto) {
+      return await this.categoriesService.createCategory(categoryData);
     }
 
     @Post('/subcategory/create')
