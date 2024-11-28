@@ -131,7 +131,8 @@ export class UserService {
     }
 
     private generateSixDigitCode() {
-        return `${Math.floor(Math.random() * (999999 - 100000) + 100000)}`;
+        let code = Math.floor(Math.random() * (999999 - 1) + 1).toString();
+        return `${"0".repeat(6 - code.length)}${code}`;
     }
 
     public async createVerificationCode(user: UserEntity) {
