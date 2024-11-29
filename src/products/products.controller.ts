@@ -24,6 +24,12 @@ export class ProductsController {
         return this.productsService.getAll(language);
     }
 
+    @Get('/getPaginated')
+    @UsePipes(new ValidateLanguagePipe())
+    getPaginated(@AcceptLanguage() language: string, @Body() pagination: number,@Req() req: Request){
+        return this.productsService.getPaginated(pagination);
+    }
+
     @Post('/create')
     @Role(EUserRole.ADMIN)
     @UseGuards(RolesGuard)

@@ -56,6 +56,37 @@ export class ProductsService {
         });
     }
 
+    public async getPaginated(pagination: number){
+        const res =  await this.productRepository
+            .createQueryBuilder('product')
+            .select()
+            .leftJoinAndSelect('product.category', 'category')
+            .leftJoin('category.translate', 'category_t')
+            .addSelect(['category_t.name', 'category_t.language'])
+            .leftJoin('product.translate', 'product_t')
+            .addSelect(["product_t.title", "product_t.language", "product_t.shortDesc"])
+            .where('product_t.language = :language', { language : "ukr" })
+            .andWhere('category_t.language = :language', { language :"ukr" })
+            .getMany();
+        console.log(res)
+        return res.map(product => {
+            return {
+                id: product.id,
+                uuid: product.uuid,
+                createdAt: product.createdAt,
+                price_currency: product.price_currency,
+                shortDesc: product.translate[0].shortDesc,
+                title: product.translate[0].title,
+                photo_url: product.photo_url,
+                price_points: product.price_points,
+                percent_discount: product.percent_discount,
+                rating: product.rating,
+            }
+        });
+       
+    }
+
+
     public async getAll(language: string) {
         const res =  await this.productRepository
             .createQueryBuilder('product')
