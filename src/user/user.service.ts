@@ -43,7 +43,7 @@ export class UserService {
     public async delete(uuid: string, password: string){
         let user = await this.findOneById(uuid);
         console.log(password, user.password)
-        if(!await compare(password, user.password))
+        if(!(await compare(password, user.password)))
         {
             throw new BadRequestException(
                 `passwords are not same`
