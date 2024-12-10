@@ -23,6 +23,10 @@ export class CategoriesService {
         private readonly tokenService: TokenService
     ) {}
 
+    public async findAllCategories(): Promise<CategoryEntity[]> {
+        return await this.categoryRepository.find();
+    }
+
     public async createCategory(categoryData: CreateCategoryDto): Promise<CategoryEntity> {
         const newCategory = this.categoryRepository.create(categoryData);
         return await this.categoryRepository.save(newCategory);

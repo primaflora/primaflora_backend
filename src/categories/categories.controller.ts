@@ -19,6 +19,11 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 export class CategoriesController {
     constructor(private readonly categoriesService: CategoriesService) {}
 
+    @Get()
+    public async findAllCategories() {
+        return await this.categoriesService.findAllCategories();
+    }
+
     @Get('findAllWithSub')
     @UsePipes(new ValidateLanguagePipe())
     public async findAllWithSub(
