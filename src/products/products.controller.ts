@@ -27,7 +27,8 @@ export class ProductsController {
     @Get('/getPaginated')
     @UsePipes(new ValidateLanguagePipe())
     getPaginated(@AcceptLanguage() language: string, @Body() pagination: number,@Req() req: Request){
-        return this.productsService.getPaginated(pagination);
+        const token = req.headers.authorization.replace('Bearer ', '');
+        return this.productsService.getPaginated(pagination, token);
     }
 
     @Post('/create')
