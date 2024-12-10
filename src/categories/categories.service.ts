@@ -144,7 +144,6 @@ export class CategoriesService {
                 })
             };
         }
-
         const userPayload = await this.tokenService.verifyToken(
             token,
             'access'
@@ -173,5 +172,6 @@ export class CategoriesService {
                 })
             ),
         };
+
     }
 }

@@ -56,7 +56,7 @@ export class ProductsService {
         });
     }
 
-    public async getPaginated(pagination: number){
+    public async getPaginated(pagination: number, token?: string){
         const res =  await this.productRepository
             .createQueryBuilder('product')
             .select()
@@ -68,12 +68,35 @@ export class ProductsService {
             .where('product_t.language = :language', { language : "ukr" })
             .andWhere('category_t.language = :language', { language :"ukr" })
             .getMany();
-        console.log(res)
-        return res.map(product => {
+
+
+        if(!token){
+            return res.map(product => {
+                return {
+                    id: product.id,
+                    uuid: product.uuid,
+                    price_currency: product.price_currency,
+                    shortDesc: product.translate[0].shortDesc,
+                    title: product.translate[0].title,
+                    photo_url: product.photo_url,
+                    price_points: product.price_points,
+                    percent_discount: product.percent_discount,
+                    rating: product.rating,
+                }
+            });
+        }
+        
+        const userPayload = await this.tokenService.verifyToken(
+                token,
+                'access'
+        );
+    
+    
+            // if user is defined, mark what products he liked
+        return await Promise.all( res.map(async product => {
             return {
                 id: product.id,
                 uuid: product.uuid,
-                createdAt: product.createdAt,
                 price_currency: product.price_currency,
                 shortDesc: product.translate[0].shortDesc,
                 title: product.translate[0].title,
@@ -81,9 +104,14 @@ export class ProductsService {
                 price_points: product.price_points,
                 percent_discount: product.percent_discount,
                 rating: product.rating,
+                like: await this.likeService.findOne(
+                    userPayload.id,
+                    product.id
+                ),
             }
-        });
-       
+        }));
+    
+
     }
 
 
