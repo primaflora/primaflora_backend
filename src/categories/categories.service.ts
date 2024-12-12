@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CategoryEntity } from '../entity/category.entity';
@@ -9,6 +9,8 @@ import { SubcategoryDto } from './dto/subcategory.dto';
 import { SubcategoryTranslateEntity } from 'src/entity/subcategory_t.entity';
 import { ProductDto } from 'src/products/dto/product.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateSubcategoryDto } from './dto/update-subcategory.dto';
 
 @Injectable()
 export class CategoriesService {
@@ -24,9 +26,102 @@ export class CategoriesService {
     ) {}
 
     public async findAllCategories(): Promise<CategoryEntity[]> {
-        return await this.categoryRepository.find();
+        return await this.categoryRepository.find({relations: ['childrens', 'childrens.translate']});
     }
 
+    public async updateCategory(id: string, updateCategoryDto: UpdateCategoryDto): Promise<CategoryEntity> {
+        const category = await this.categoryRepository.findOne({ where: { uuid: id } });
+
+        if (!category) {
+            throw new NotFoundException(`Категория с id ${id} не найдена`);
+        }
+
+        Object.assign(category, updateCategoryDto);
+        return await this.categoryRepository.save(category);
+    }
+
+    public async updateSubcategory(id: string, subcategoryDto: UpdateSubcategoryDto) {
+        // Найти подкатегорию по ID
+        const subcategory = await this.subcategoryRepository.findOne({
+            where: { uuid: id },
+            relations: ['translate'],
+        });
+    
+        if (!subcategory) {
+            throw new NotFoundException(`Подкатегория с id ${id} не найдена`);
+        }
+    
+        // Обновить базовые поля подкатегории
+        if (subcategoryDto.image) {
+            subcategory.image = subcategoryDto.image;
+        }
+    
+        // Обработка переводов
+        const updatedTranslations = [];
+        for (const translation of subcategoryDto.translate) {
+            // Найти существующий перевод по языку
+            const existingTranslation = subcategory.translate.find(
+                (t) => t.language === translation.language,
+            );
+    
+            if (existingTranslation) {
+                // Обновить существующий перевод
+                existingTranslation.name = translation.name;
+                existingTranslation.desc = translation.desc;
+                const updatedTranslation = await this.subcategoryTranslateRepository.save(
+                    existingTranslation,
+                );
+                updatedTranslations.push(updatedTranslation);
+            } else {
+                // Создать новый перевод
+                const newTranslation = await this.subcategoryTranslateRepository.save({
+                    name: translation.name,
+                    desc: translation.desc,
+                    language: translation.language,
+                    subcategory: subcategory, // Связь с подкатегорией
+                });
+                updatedTranslations.push(newTranslation);
+            }
+        }
+    
+        // Привязать обновленные переводы к подкатегории
+        subcategory.translate = updatedTranslations;
+    
+        // Сохранить подкатегорию с обновленными данными
+        return await this.subcategoryRepository.save(subcategory);
+    }
+
+    public async deleteCategory(id: string): Promise<void> {
+        const result = await this.categoryRepository.delete({ uuid: id });
+
+        if (result.affected === 0) {
+            throw new NotFoundException(`Категория с id ${id} не найдена`);
+        }
+    }
+
+    public async deleteSubcategory(id: string): Promise<void> {
+        const subcategory = await this.subcategoryRepository.findOne({
+            where: { uuid: id },
+            relations: ['translate'],
+        });
+    
+        if (!subcategory) {
+            throw new NotFoundException(`Подкатегория с id ${id} не найдена`);
+        }
+    
+        // Удаление всех переводов
+        await this.subcategoryTranslateRepository.delete({ subcategory: subcategory });
+    
+        // Удаление подкатегории
+        await this.subcategoryRepository.delete({ uuid: id });
+    }
+
+    public async getAllSubcategories() {
+        return await this.subcategoryRepository.find({
+            relations: ['translate'], // Подгружаем переводы и категорию, если нужно
+        });
+    }
+    
     public async createCategory(categoryData: CreateCategoryDto): Promise<CategoryEntity> {
         const newCategory = this.categoryRepository.create(categoryData);
         return await this.categoryRepository.save(newCategory);
@@ -116,6 +211,7 @@ export class CategoriesService {
             .leftJoin('product.translate', 'product_t')
             .addSelect(["product_t.title", "product_t.language", "product_t.shortDesc"])
             .where('subcategory.id = :subcategoryId', { subcategoryId })
+            .andWhere('product.isPublished = :isPublished', { isPublished: true })
             .andWhere('product_t.language = :language', { language })
             .andWhere('subcategoryTranslate.language = :language', { language })
             .getOne();

@@ -116,6 +116,7 @@ export class ProductsService {
 
 
     public async getAll(language: string) {
+        console.log("IN GET ALL");
         const res =  await this.productRepository
             .createQueryBuilder('product')
             .select(['product.uuid', 'product.id', 'product.createdAt', 'product.price_currency'])

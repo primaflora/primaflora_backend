@@ -4,7 +4,7 @@ import { SubcategoryEntity } from './subcategory.entity';
 
 @Entity('subcategory_t')
 export class SubcategoryTranslateEntity extends AbstractEntity {
-    @ManyToOne(() => SubcategoryEntity, subcategory => subcategory.translate)
+    @ManyToOne(() => SubcategoryEntity, subcategory => subcategory.translate, { onDelete: 'CASCADE' })
     public subcategory: SubcategoryEntity;
 
     @Column()

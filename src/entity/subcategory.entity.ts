@@ -11,7 +11,8 @@ export class SubcategoryEntity extends AbstractEntity {
 
     @OneToMany(
         () => SubcategoryTranslateEntity,
-        translate => translate.subcategory
+        translate => translate.subcategory,
+        {cascade: true, onDelete: 'CASCADE'}
     )
     translate: SubcategoryTranslateEntity[];
 

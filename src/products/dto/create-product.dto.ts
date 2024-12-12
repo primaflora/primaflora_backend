@@ -1,4 +1,4 @@
-import { IsNumber, IsPositive, IsString, IsUrl, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsPositive, IsString, IsUrl, Min } from 'class-validator';
 
 export class CreateProductDto {
     @IsString()
@@ -26,6 +26,9 @@ export class CreateProductDto {
     public categoryId: number;
 
     public translate: ProductTranslateDto[];
+
+    @IsBoolean()
+    public isPublished: boolean;
 }
 
 export class ProductTranslateDto {

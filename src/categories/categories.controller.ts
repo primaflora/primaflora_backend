@@ -1,9 +1,11 @@
 import {
     Body,
     Controller,
+    Delete,
     Get,
     Param,
     Post,
+    Put,
     Query,
     Req,
     UsePipes,
@@ -14,6 +16,8 @@ import { ValidateLanguagePipe } from 'src/common/pipes/accept-language.pipe';
 import { CategoriesService } from './categories.service';
 import { SubcategoryDto } from './dto/subcategory.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { UpdateSubcategoryDto } from './dto/update-subcategory.dto';
 
 @Controller('categories')
 export class CategoriesController {
@@ -63,8 +67,40 @@ export class CategoriesController {
         return await this.categoriesService.createSubcategory(subcategoryDto);
     }
 
+    @Put(':id')
+    public async updateCategory(
+        @Param('id') id: string,
+        @Body() updateCategoryDto: UpdateCategoryDto,
+    ) {
+        return await this.categoriesService.updateCategory(id, updateCategoryDto);
+    }
+
+    @Delete(':id')
+    public async deleteCategory(@Param('id') id: string) {
+        return await this.categoriesService.deleteCategory(id);
+    }
+
+    @Put('/subcategory/:id')
+    public async updateSubcategory(
+        @Param('id') id: string,
+        @Body() updateSubcategoryDto: UpdateSubcategoryDto,
+    ) {
+        return await this.categoriesService.updateSubcategory(id, updateSubcategoryDto);
+    }
+
+    // Удаление подкатегории
+    @Delete('/subcategory/:id')
+    public async deleteSubcategory(@Param('id') id: string) {
+        return await this.categoriesService.deleteSubcategory(id);
+    }
+
+    @Get('/subcategories')
+    public async getAllSubcategories() {
+        return await this.categoriesService.getAllSubcategories();
+    }
     @Get('/subcategory/:uuid')
-    public async getSubcategory(@Query('uuid') uuid: string) {
+    public async getSubcategory(@Param('uuid') uuid: string) {
+        console.log("id", uuid);
         return await this.categoriesService.getSubcategory(uuid);
     }
 }
