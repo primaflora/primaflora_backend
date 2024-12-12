@@ -20,6 +20,6 @@ export class ProductTranslateEntity extends AbstractEntity {
     @Column()
     public language: string;
 
-    @Column({default: false})
-    public isPublished: boolean
+    // @Column({default: false})
+    // public isPublished: boolean
 }

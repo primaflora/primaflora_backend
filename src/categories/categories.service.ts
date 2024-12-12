@@ -211,7 +211,7 @@ export class CategoriesService {
             .leftJoin('product.translate', 'product_t')
             .addSelect(["product_t.title", "product_t.language", "product_t.shortDesc"])
             .where('subcategory.id = :subcategoryId', { subcategoryId })
-            .andWhere('product.isPublished = :isPublished', { isPublished: true })
+            // .andWhere('product.isPublished = :isPublished', { isPublished: true })
             .andWhere('product_t.language = :language', { language })
             .andWhere('subcategoryTranslate.language = :language', { language })
             .getOne();

@@ -17,7 +17,11 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "typeorm": "typeorm-ts-node-esm",
+    "migration:generate": "typeorm-ts-node-esm migration:generate -d ./src/data-source.js",
+    "migration:run": "typeorm-ts-node-esm migration:run -d ./src/data-source.js",
+    "migration:revert": "typeorm-ts-node-esm migration:revert -d ./src/data-source.js"
   },
   "dependencies": {
     "@nestjs/cache-manager": "^2.2.1",

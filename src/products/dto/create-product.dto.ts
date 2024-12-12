@@ -27,8 +27,8 @@ export class CreateProductDto {
 
     public translate: ProductTranslateDto[];
 
-    @IsBoolean()
-    public isPublished: boolean;
+    // @IsBoolean()
+    // public isPublished: boolean;
 }
 
 export class ProductTranslateDto {
