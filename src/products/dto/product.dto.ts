@@ -27,7 +27,7 @@ export class ProductDto {
     @IsPositive()
     public rating: number;
 
-    @IsNumber()
-    @IsPositive()
-    public categoryId: number;
+    public categoryIds: number[];
+
+    public isPublished?: boolean;
 }

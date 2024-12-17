@@ -1,4 +1,4 @@
-import { BadRequestException, forwardRef, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CommentEntity } from 'src/entity/comment.entity';
 import { TokenService } from 'src/token/token.service';
@@ -57,100 +57,142 @@ export class ProductsService {
     }
 
     public async getPaginated(pagination: number, token?: string){
-        const res =  await this.productRepository
+        let isAdmin = false;
+
+        // Проверка токена и роли пользователя
+        if (token) {
+            try {
+                const userPayload = await this.tokenService.verifyToken(token, 'access');
+                isAdmin = userPayload.role.name === 'admin'; // Проверка роли пользователя
+            } catch (error) {
+                console.warn('Token verification failed. Assuming user is not admin.');
+            }
+        }
+
+        const query = this.productRepository
             .createQueryBuilder('product')
-            .select()
-            .leftJoinAndSelect('product.category', 'category')
-            .leftJoin('category.translate', 'category_t')
+            .leftJoinAndSelect('product.categories', 'categories')
+            .leftJoin('categories.translate', 'category_t')
             .addSelect(['category_t.name', 'category_t.language'])
             .leftJoin('product.translate', 'product_t')
-            .addSelect(["product_t.title", "product_t.language", "product_t.shortDesc"])
-            .where('product_t.language = :language', { language : "ukr" })
-            .andWhere('category_t.language = :language', { language :"ukr" })
-            .getMany();
+            .addSelect([
+                'product_t.title',
+                'product_t.language',
+                'product_t.shortDesc',
+            ])
+            .where('product_t.language = :language', { language: 'ukr' })
+            .andWhere('category_t.language = :language', { language: 'ukr' });
 
-
-        if(!token){
-            return res.map(product => {
-                return {
-                    id: product.id,
-                    uuid: product.uuid,
-                    price_currency: product.price_currency,
-                    shortDesc: product.translate[0].shortDesc,
-                    title: product.translate[0].title,
-                    photo_url: product.photo_url,
-                    price_points: product.price_points,
-                    percent_discount: product.percent_discount,
-                    rating: product.rating,
-                }
-            });
+        // Добавляем условие isPublished, если пользователь не админ
+        if (!isAdmin) {
+            query.andWhere('product.isPublished = :isPublished', { isPublished: true });
         }
-        
-        const userPayload = await this.tokenService.verifyToken(
-                token,
-                'access'
-        );
-    
-    
-            // if user is defined, mark what products he liked
-        return await Promise.all( res.map(async product => {
-            return {
+
+        const res = await query.getMany();
+
+
+        if (!token) {
+            return res.map(product => ({
                 id: product.id,
                 uuid: product.uuid,
                 price_currency: product.price_currency,
-                shortDesc: product.translate[0].shortDesc,
-                title: product.translate[0].title,
+                shortDesc: product.translate[0]?.shortDesc,
+                title: product.translate[0]?.title,
                 photo_url: product.photo_url,
                 price_points: product.price_points,
                 percent_discount: product.percent_discount,
                 rating: product.rating,
-                like: await this.likeService.findOne(
-                    userPayload.id,
-                    product.id
-                ),
-            }
-        }));
+                categories: product.categories.map(cat => ({
+                    id: cat.id,
+                    name: cat.translate[0]?.name,
+                })),
+            }));
+        }
     
+        // Если пользователь авторизован, добавляем информацию о лайках
+        const userPayload = await this.tokenService.verifyToken(token, 'access');
+    
+        return await Promise.all(
+            res.map(async product => ({
+                id: product.id,
+                uuid: product.uuid,
+                price_currency: product.price_currency,
+                shortDesc: product.translate[0]?.shortDesc,
+                title: product.translate[0]?.title,
+                photo_url: product.photo_url,
+                price_points: product.price_points,
+                percent_discount: product.percent_discount,
+                rating: product.rating,
+                like: await this.likeService.findOne(userPayload.id, product.id),
+                categories: product.categories.map(cat => ({
+                    id: cat.id,
+                    name: cat.translate[0]?.name,
+                })),
+                isPublished: product.isPublished
+            }))
+        );
 
     }
 
 
-    public async getAll(language: string) {
+    public async getAll(language: string, token?: string) {
         console.log("IN GET ALL");
-        const res =  await this.productRepository
+        let isAdmin = false;
+
+        if (token) {
+            try {
+                const userPayload = await this.tokenService.verifyToken(token, 'access');
+                console.log(userPayload)
+                isAdmin = userPayload.role.name === 'admin'; // Проверка роли
+            } catch (error) {
+                console.warn('Token verification failed. Assuming user role.');
+            }
+        }
+
+        const query = this.productRepository
             .createQueryBuilder('product')
-            .select(['product.uuid', 'product.id', 'product.createdAt', 'product.price_currency'])
-            .leftJoinAndSelect('product.category', 'category')
-            .leftJoin('category.translate', 'category_t')
+            .leftJoinAndSelect('product.categories', 'categories')
+            .leftJoin('categories.translate', 'category_t')
             .addSelect(['category_t.name', 'category_t.language'])
             .leftJoin('product.translate', 'product_t')
             .addSelect(['product_t.title', 'product_t.language'])
             .where('product_t.language = :language', { language })
-            .andWhere('category_t.language = :language', { language })
-            .getMany();
+            .andWhere('category_t.language = :language', { language });
+
+        // Если пользователь не админ, добавляем фильтрацию по isPublished
+        if (!isAdmin) {
+            query.andWhere('product.isPublished = :isPublished', { isPublished: true });
+        }
+
+        const res = await query.getMany();
 
         return res.map(product => {
             // Extract the necessary translations from the nested arrays
-            const categoryTranslation = product.category.translate[0];
-            const productTranslation = product.translate[0];
+            // const categoryTranslation = product.category.translate[0];
+            const productTranslation = product.translate?.find(t => t.language === language);
 
+            const categories = product.categories.map(category => {
+                const categoryTranslation = category.translate?.find(t => t.language === language);
+                return {
+                    id: category.id,
+                    uuid: category.uuid,
+                    createdAt: category.createdAt,
+                    updatedAt: category.updatedAt,
+                    image: category.image,
+                    name: categoryTranslation?.name,
+                    language: categoryTranslation?.language,
+                };
+            });
             // Return the transformed product
             return {
                 id: product.id,
                 uuid: product.uuid,
                 createdAt: product.createdAt,
                 price_currency: product.price_currency,
-                category: {
-                id: product.category.id,
-                uuid: product.category.uuid,
-                createdAt: product.category.createdAt,
-                updatedAt: product.category.updatedAt,
-                image: product.category.image,
-                name: categoryTranslation?.name,
-                language: categoryTranslation?.language,
-                },
+                categories: categories, // Обновлено для поддержки нескольких категорий
                 title: productTranslation?.title,
                 language: productTranslation?.language,
+                isPublished: product.isPublished
             };
         });    
     }
@@ -164,20 +206,29 @@ export class ProductsService {
         console.log('language => ', language);
         const res = await this.productRepository
             .createQueryBuilder('product')
-            .leftJoinAndSelect('product.comments', 'comments')
-            .leftJoinAndSelect('comments.user', 'commentUser')
-            .leftJoinAndSelect('product.category', 'category')
-            .leftJoin('product.translate', 'product_t')
-            .addSelect(['product_t.title', 'product_t.language', 'product_t.shortDesc', 'product_t.desc'])
-            .leftJoin('category.translate', 'category_t')
+            .leftJoinAndSelect('product.comments', 'comments') // Комментарии
+            .leftJoinAndSelect('comments.user', 'commentUser') // Пользователи комментариев
+            .leftJoinAndSelect('product.categories', 'categories') // ManyToMany: категории продукта
+            .leftJoin('categories.translate', 'category_t') // Переводы категорий
             .addSelect(['category_t.name', 'category_t.language'])
+            .leftJoin('product.translate', 'product_t') // Переводы продукта
+            .addSelect([
+                'product_t.title',
+                'product_t.language',
+                'product_t.shortDesc',
+                'product_t.desc',
+            ])
             .where('product.uuid = :productUid', { productUid: uuid })
             .andWhere('product_t.language = :language', { language })
             .andWhere('category_t.language = :language', { language })
             .getOne();
 
         console.log('res => ', res);
- 
+
+        if (!res) {
+            throw new NotFoundException(`Product with UUID ${uuid} not found`);
+        }
+    
         let updatedRes;
         const { translate, ...other } = res;
         updatedRes = {
@@ -230,14 +281,15 @@ export class ProductsService {
     }
 
     public async create(createProductDto: Omit<CreateProductDto, 'rating'>) {
-        const category = await this.categoryService.findSubcategoryById(
-            createProductDto.categoryId
+        const categories = await this.categoryService.findSubcategoriesByIds(
+            createProductDto.categoryIds
         );
 
-        const newProduct = await this.productRepository.create({
+        const newProduct = this.productRepository.create({
             ...createProductDto,
             rating: 0,
-            category: category,
+            categories: categories,
+            isPublished: createProductDto.isPublished || false,
         });
 
         const translations = [];
@@ -252,37 +304,68 @@ export class ProductsService {
     }
 
     async update(uuid: string, updateProductDto: UpdateProductDto, language: string) {
-        const queryBulder = this.productRepository
-            .createQueryBuilder('product')
-            .where('product.uuid = :productUid', { productUid: uuid });
-            if(updateProductDto.translate) {
-                queryBulder.leftJoinAndSelect('product.translate', 'product_t')
-                    .andWhere('product_t.language = :language', { language });
-            }
+        console.log("Inside update product")
+        console.log(updateProductDto.categoryIds);
+        const product = await this.productRepository.findOne({
+            where: { uuid },
+            relations: ['translate', 'categories'],
+        });
+        // const queryBulder = this.productRepository
+        //     .createQueryBuilder('product')
+        //     .where('product.uuid = :productUid', { productUid: uuid });
+        //     if(updateProductDto.translate) {
+        //         queryBulder.leftJoinAndSelect('product.translate', 'product_t')
+        //             .andWhere('product_t.language = :language', { language });
+        //     }
 
-        const product = await queryBulder.getOne();
+        // const product = await queryBulder.getOne();
 
         if (!product) {
             throw new BadRequestException('Wrong uuid!');
         }
 
-        if ('translate' in updateProductDto) {
-            const { translate, ...other } = updateProductDto;
-
+        if (updateProductDto.translate) {
             await this.productTranslateRepository.save({
                 ...product.translate[0],
                 ...updateProductDto.translate,
             });
-            return await this.productRepository.save({
-                ...product,
-                ...other,
-            });
-        } else {
-            return await this.productRepository.save({
-                ...product,
-                ...updateProductDto as Partial<ProductEntity>,
-            });
         }
+        console.log('Categories before save:', product.categories);
+
+        if (!Array.isArray(product.categories)) {
+            throw new Error('product.categories must be an array');
+        }
+
+        if (updateProductDto.categoryIds) {
+            const categories = await this.categoryService.findSubcategoriesByIds(updateProductDto.categoryIds);
+            console.log(categories)
+            // Присваиваем категории как массив сущностей
+            product.categories = categories;
+        }
+    
+        // Обновление остальных данных
+        return await this.productRepository.save({
+            ...product,
+            ...updateProductDto
+        });
+        
+        // if ('translate' in updateProductDto) {
+        //     const { translate, ...other } = updateProductDto;
+
+        //     await this.productTranslateRepository.save({
+        //         ...product.translate[0],
+        //         ...updateProductDto.translate,
+        //     });
+        //     return await this.productRepository.save({
+        //         ...product,
+        //         ...other,
+        //     });
+        // } else {
+        //     return await this.productRepository.save({
+        //         ...product,
+        //         ...updateProductDto as Partial<ProductEntity>,
+        //     });
+        // }
     }
 
     async delete(uuid: string) {

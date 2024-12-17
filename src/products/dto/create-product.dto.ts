@@ -21,14 +21,12 @@ export class CreateProductDto {
     @IsPositive()
     public rating: number;
 
-    @IsNumber()
-    @IsPositive()
-    public categoryId: number;
+    public categoryIds: number[];
 
     public translate: ProductTranslateDto[];
 
-    // @IsBoolean()
-    // public isPublished: boolean;
+    @IsBoolean()
+    readonly isPublished?: boolean; // Новый флаг
 }
 
 export class ProductTranslateDto {

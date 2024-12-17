@@ -1,4 +1,4 @@
-import { Column, Entity, ManyToOne, OneToMany } from 'typeorm';
+import { Column, Entity, JoinTable, ManyToMany, ManyToOne, OneToMany } from 'typeorm';
 import { AbstractEntity } from './abstract.entity';
 import { SubcategoryEntity } from './subcategory.entity';
 import { CommentEntity } from './comment.entity';
@@ -25,12 +25,16 @@ export class ProductEntity extends AbstractEntity {
     @Column('int')
     public rating: number;
 
-    @ManyToOne(() => SubcategoryEntity, subcategory => subcategory.products)
-    public category: SubcategoryEntity;
+    @ManyToMany(() => SubcategoryEntity, subcategory => subcategory.products, { cascade: true })
+    @JoinTable() // Эта аннотация создаст промежуточную таблицу
+    public categories: SubcategoryEntity[];
 
     @OneToMany(() => CommentEntity, comment => comment.product, { onDelete: 'CASCADE' })
     public comments: CommentEntity[];
 
     @OneToMany(() => CartEntity, cart => cart.product, { onDelete: 'CASCADE' })
     public carts: CartEntity[];
+
+    @Column({ type: 'boolean', default: false })
+    public isPublished: boolean;
 }

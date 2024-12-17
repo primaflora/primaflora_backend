@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { CategoryEntity } from '../entity/category.entity';
 import { SubcategoryEntity } from 'src/entity/subcategory.entity';
 import { LikeService } from 'src/like/like.service';
@@ -166,6 +166,9 @@ export class CategoriesService {
             where: { id },
         });
     }
+    public async findSubcategoriesByIds(ids: number[]) {
+        return await this.subcategoryRepository.findBy({ id: In(ids) });
+    }
 
     public async findAllWithSub(language: string = 'ukr') {
         // return await this.categoryRepository.find({ relations: ['childrens'] });
@@ -203,75 +206,82 @@ export class CategoriesService {
         language: string,
         token?: string
     ) {
+        let isAdmin = false;
+
+        // Проверка роли пользователя по токену
+        if (token) {
+            try {
+                const userPayload = await this.tokenService.verifyToken(token, 'access');
+                isAdmin = userPayload.role === 'admin';
+            } catch (error) {
+                console.warn('Token verification failed. Assuming user is not admin.');
+            }
+        }
         const subcategory = await this.subcategoryRepository
-            .createQueryBuilder('subcategory')
-            .leftJoinAndSelect('subcategory.products', 'product')
-            .leftJoinAndSelect('product.comments', 'comment')
-            .leftJoinAndSelect('subcategory.translate', 'subcategoryTranslate')
-            .leftJoin('product.translate', 'product_t')
-            .addSelect(["product_t.title", "product_t.language", "product_t.shortDesc"])
-            .where('subcategory.id = :subcategoryId', { subcategoryId })
-            // .andWhere('product.isPublished = :isPublished', { isPublished: true })
-            .andWhere('product_t.language = :language', { language })
-            .andWhere('subcategoryTranslate.language = :language', { language })
-            .getOne();
+        .createQueryBuilder('subcategory')
+        .leftJoinAndSelect('subcategory.products', 'product') // ManyToMany связь
+        .leftJoinAndSelect('product.comments', 'comment')
+        .leftJoinAndSelect('subcategory.translate', 'subcategoryTranslate')
+        .leftJoin('product.translate', 'product_t')
+        .addSelect([
+            'product_t.title',
+            'product_t.language',
+            'product_t.shortDesc',
+        ])
+        .where('subcategory.id = :subcategoryId', { subcategoryId })
+        .andWhere('product_t.language = :language', { language })
+        .andWhere('subcategoryTranslate.language = :language', { language })
+        .andWhere(
+            isAdmin ? '1=1' : 'product.isPublished = :isPublished',
+            { isPublished: true }
+        )
+        .getOne();
 
-        console.log("response => ", subcategory);
-
-        if (!subcategory?.products) {
-            return {
-                ...subcategory,
-                products: []
-            };
-        }
-
-        // return data without likes
-        if (!token) {
-            return {
-                ...subcategory,
-    
-                products: subcategory.products.map(product => {
-                    const { translate, ...other } = product;
-
-                    console.log(`${translate[0].title} => `, product)
-                    return {
-                        ...other,
-                        title: translate[0].title,
-                        shortDesc: translate[0].shortDesc,
-                        language: translate[0].language,
-                        comments: product.comments.length,
-                    }
-                })
-            };
-        }
-        const userPayload = await this.tokenService.verifyToken(
-            token,
-            'access'
-        );
-
-
-        // if user is defined, mark what products he liked
+    if (!subcategory?.products) {
         return {
             ...subcategory,
-
-            products: await Promise.all(
-                subcategory.products.map(async product => {
-                    const { translate, ...other } = product;
-
-                    return {
-                        ...other,
-                        title: product.translate[0].title,
-                        shortDesc: product.translate[0].shortDesc,
-                        language: product.translate[0].language,
-                        comments: product.comments.length,
-                        like: await this.likeService.findOne(
-                            userPayload.id,
-                            product.id
-                        ),
-                    }
-                })
-            ),
+            products: [],
         };
+    }
 
+    // Если токен не передан, возвращаем данные без лайков
+    if (!token) {
+        return {
+            ...subcategory,
+            products: subcategory.products.map(product => {
+                const { translate, ...other } = product;
+                return {
+                    ...other,
+                    title: translate[0]?.title,
+                    shortDesc: translate[0]?.shortDesc,
+                    language: translate[0]?.language,
+                    comments: product.comments.length,
+                };
+            }),
+        };
+    }
+
+    // Получение данных о пользователе
+    const userPayload = await this.tokenService.verifyToken(token, 'access');
+
+    return {
+        ...subcategory,
+        products: await Promise.all(
+            subcategory.products.map(async product => {
+                const { translate, ...other } = product;
+                return {
+                    ...other,
+                    title: translate[0]?.title,
+                    shortDesc: translate[0]?.shortDesc,
+                    language: translate[0]?.language,
+                    comments: product.comments.length,
+                    like: await this.likeService.findOne(
+                        userPayload.id,
+                        product.id
+                    ),
+                };
+            }),
+        ),
+    };
     }
 }

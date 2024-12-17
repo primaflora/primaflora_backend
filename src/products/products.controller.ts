@@ -20,14 +20,16 @@ export class ProductsController {
 
     @Get('/getAll')
     @UsePipes(new ValidateLanguagePipe())
-    findAll(@AcceptLanguage() language: string) {
-        return this.productsService.getAll(language);
+    findAll(@AcceptLanguage() language: string, @Req() req: Request) {
+        const token = req.headers['authorization']?.split(' ')[1];
+        console.log("TOKEN", token)
+        return this.productsService.getAll(language, token);
     }
 
     @Get('/getPaginated')
     @UsePipes(new ValidateLanguagePipe())
     getPaginated(@AcceptLanguage() language: string, @Body() pagination: number,@Req() req: Request){
-        const token = req.headers.authorization.replace('Bearer ', '');
+        const token = req.headers['authorization']?.split(' ')[1];
         return this.productsService.getPaginated(pagination, token);
     }
 
