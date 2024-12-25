@@ -5,7 +5,7 @@ export class ValidateLanguagePipe implements PipeTransform {
         if (!value) return;
         if (Number(value) || value.length !== 3) return value;
 
-        const allowedLanguages = ['rus', 'ukr'];
+        const allowedLanguages = ['ukr'];
         if (!allowedLanguages.includes(String(value))) {
             throw new BadRequestException(
                 `Invalid language. Only ${allowedLanguages} are allowed`
