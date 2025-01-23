@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ProductEntity } from 'src/entity/product.entity';
 import { Repository } from 'typeorm';
@@ -10,12 +10,33 @@ export class LikeService {
     constructor(
         @InjectRepository(LikeEntity)
         private likeRepository: Repository<LikeEntity>,
+        @InjectRepository(ProductEntity)
+        private productRepository: Repository<ProductEntity>,
         private readonly userService: UserService
     ) {}
 
     public async setLike(userUuid: string, product: ProductEntity) {
         const user = await this.userService.findOneById(userUuid);
         return this.likeRepository.save({ user, product });
+    }
+
+
+    async likeProduct(userId: string, productId: string) {
+        const product = await this.productRepository.findOne({ where: { uuid: productId }});
+        console.log(product);
+        if (!product) throw new NotFoundException('Product not found');
+
+        const user = await this.userService.findOneById(userId);
+        if (!user) throw new NotFoundException('User not found');
+
+        const like = this.likeRepository.create({ user, product });
+        return await this.likeRepository.save(like);
+    }
+    async unlikeProduct(userId: string, productId: string) {
+        const like = await this.likeRepository.findOne({ where: {user: {uuid: userId}, product: {uuid: productId}} });
+        if (!like) throw new NotFoundException('Like not found');
+
+        return await this.likeRepository.remove(like);
     }
 
     public async removeLike(userUuid: string, likeUuid: string) {
