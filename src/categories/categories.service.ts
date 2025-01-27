@@ -56,36 +56,49 @@ export class CategoriesService {
             subcategory.image = subcategoryDto.image;
         }
     
-        // Обработка переводов
-        const updatedTranslations = [];
-        for (const translation of subcategoryDto.translate) {
-            // Найти существующий перевод по языку
-            const existingTranslation = subcategory.translate.find(
-                (t) => t.language === translation.language,
-            );
+        const language = subcategoryDto.translate.language; // Убедитесь, что в DTO передается `language`
+        const existingTranslation = subcategory.translate.find(
+            (t) => t.language === language,
+        );
+        
+        if (existingTranslation) {
+            // Обновляем существующий перевод
+            existingTranslation.name = subcategoryDto.translate.name;
+            existingTranslation.desc = subcategoryDto.translate.desc;
     
-            if (existingTranslation) {
-                // Обновить существующий перевод
-                existingTranslation.name = translation.name;
-                existingTranslation.desc = translation.desc;
-                const updatedTranslation = await this.subcategoryTranslateRepository.save(
-                    existingTranslation,
-                );
-                updatedTranslations.push(updatedTranslation);
-            } else {
-                // Создать новый перевод
-                const newTranslation = await this.subcategoryTranslateRepository.save({
-                    name: translation.name,
-                    desc: translation.desc,
-                    language: translation.language,
-                    subcategory: subcategory, // Связь с подкатегорией
-                });
-                updatedTranslations.push(newTranslation);
-            }
+            // Сохраняем обновленный перевод
+            await this.subcategoryTranslateRepository.save(existingTranslation);
         }
+        // Обработка переводов
+        // const updatedTranslations = [];
+        // for (const translation of subcategoryDto.translate) {
+        //     // Найти существующий перевод по языку
+        //     const existingTranslation = subcategory.translate.find(
+        //         (t) => t.language === translation.language,
+        //     );
+    
+        //     if (existingTranslation) {
+        //         // Обновить существующий перевод
+        //         existingTranslation.name = translation.name;
+        //         existingTranslation.desc = translation.desc;
+        //         const updatedTranslation = await this.subcategoryTranslateRepository.save(
+        //             existingTranslation,
+        //         );
+        //         updatedTranslations.push(updatedTranslation);
+        //     } else {
+        //         // Создать новый перевод
+        //         const newTranslation = await this.subcategoryTranslateRepository.save({
+        //             name: translation.name,
+        //             desc: translation.desc,
+        //             language: translation.language,
+        //             subcategory: subcategory, // Связь с подкатегорией
+        //         });
+        //         updatedTranslations.push(newTranslation);
+        //     }
+        // }
     
         // Привязать обновленные переводы к подкатегории
-        subcategory.translate = updatedTranslations;
+        // subcategory.translate = updatedTranslations;
     
         // Сохранить подкатегорию с обновленными данными
         return await this.subcategoryRepository.save(subcategory);

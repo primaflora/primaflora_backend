@@ -23,5 +23,5 @@ export class UpdateSubcategoryDto {
     @ValidateNested({ each: true })
     @Type(() => TranslateDto)
     @IsNotEmpty()
-    translate: TranslateDto[];
+    translate: TranslateDto;
 }
