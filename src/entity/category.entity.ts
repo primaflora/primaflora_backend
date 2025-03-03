@@ -10,9 +10,6 @@ export class CategoryEntity extends AbstractEntity {
     @Column('varchar')
     name_ukr: string;
 
-    @Column('varchar')
-    name_rus: string;
-
     @OneToMany(() => SubcategoryEntity, subcategory => subcategory.parent)
     public childrens: SubcategoryEntity[];
 }

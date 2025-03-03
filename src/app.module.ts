@@ -17,6 +17,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { TokenService } from './token/token.service';
 import { RoleModule } from './role/role.module';
 import { XitemModule } from './xitem/xitem.module';
+import { OrderModule } from './order/order.module';
 
 @Global()
 @Module({
@@ -40,6 +41,7 @@ import { XitemModule } from './xitem/xitem.module';
         LikeModule,
         RoleModule,
         XitemModule,
+        OrderModule,
     ],
     controllers: [AppController],
 })

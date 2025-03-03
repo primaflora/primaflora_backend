@@ -40,12 +40,14 @@ export class CartController {
         return this.cartService.findAll(userFromToken.uuid, language);
     }
 
-    @Patch('/:cartItemUuid')
+    @Patch()
     update(
-        @Param('cartItemUuid') cartItemId: string,
-        @Body() updateCartDto: UpdateCartDto
+        @Body() updateCartDto: UpdateCartDto,
+        @Req() req: Request
     ) {
-        return this.cartService.update(cartItemId, updateCartDto);
+        const token = req.headers.authorization.replace('Bearer ', '');
+        const userUid = this.tokenService.verifyToken(token, 'access').uuid;
+        return this.cartService.update(userUid, updateCartDto);
     }
 
     @Delete('/:uuid')

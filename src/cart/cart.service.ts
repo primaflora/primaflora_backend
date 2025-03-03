@@ -1,4 +1,4 @@
-import { forwardRef, Inject, Injectable } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CartEntity } from '../entity/cart.entity';
@@ -22,6 +22,10 @@ export class CartService {
         const user = await this.userService.findOneById(userUid);
         const product = await this.productService.findOneByUid(newCart.productUId);
 
+        if (!user || !product) {
+            throw new NotFoundException("user or product not found");
+        }
+        
         // Check if the cart item already exists for the user and product
         const existingCartItem = await this.cartRepository
             .createQueryBuilder('cart')
@@ -91,12 +95,17 @@ export class CartService {
             .execute();
     }
 
-    async update(cartItemId: string, changes: UpdateCartDto) {
-        return await this.cartRepository
-            .createQueryBuilder('cart')
-            .update({ quantity: changes.quantity })
-            .where('uuid = :cartItemId', { cartItemId })
-            .execute();
+    async update(userId: string, changes: UpdateCartDto) {
+        const cartItem = await this.cartRepository.findOne({
+            where: { user: { uuid: userId }, product: { uuid: changes.productUuid } },
+        });
+        console.log(cartItem);
+        if (!cartItem) {
+            throw new Error('Товар в корзине не найден');
+        }
+        cartItem.quantity = changes.quantity;
+
+        return this.cartRepository.save(cartItem);
     }
 
     async remove(uuid: string) {

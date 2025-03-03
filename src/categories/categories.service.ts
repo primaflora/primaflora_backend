@@ -136,6 +136,7 @@ export class CategoriesService {
     }
     
     public async createCategory(categoryData: CreateCategoryDto): Promise<CategoryEntity> {
+        console.log(categoryData)
         const newCategory = this.categoryRepository.create(categoryData);
         return await this.categoryRepository.save(newCategory);
     }
@@ -196,8 +197,7 @@ export class CategoriesService {
             return {
                 id: category.id,
                 uuid: category.uuid,
-                name:
-                    language === 'ukr' ? category.name_ukr : category.name_rus,
+                name: category.name_ukr,
                 childrens: category.childrens.map(subcategory => {
                     return {
                         id: subcategory.id,

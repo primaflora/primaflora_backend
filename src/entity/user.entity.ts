@@ -3,6 +3,7 @@ import { AbstractEntity } from './abstract.entity';
 import { CartEntity } from './cart.entity';
 import { LikeEntity } from './like.entity';
 import { RoleEntity } from './role.entity';
+import { OrderEntity } from './order.entity';
 
 @Entity({ name: 'user' })
 export class UserEntity extends AbstractEntity {
@@ -43,6 +44,9 @@ export class UserEntity extends AbstractEntity {
     @Column('boolean', { nullable: true })
     public consultation_allowed: boolean;
 
+    @OneToMany(() => OrderEntity, (order) => order.user)
+    public orders: OrderEntity[];
+    
     @OneToMany(() => CartEntity, cart => cart.user, { onDelete: 'CASCADE' })
     public cart: CartEntity[];
 
