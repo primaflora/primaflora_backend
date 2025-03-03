@@ -147,12 +147,9 @@ export class OrderService {
                     },
                 },
             );
-            // const response = await axios.post(this.monobankApiUrl, body, {
-            //     headers: {
-            //         Authorization: `Basic ${this.monobankSecret}`,
-            //         'Content-Type': 'application/json',
-            //     },
-            // });
+
+            order.invoiceId = response.data.invoiceId;
+            await this.orderRepository.save(order);
 
             return { orderId: order.uuid, paymentUrl: response.data.pageUrl };
         } catch (error) {
@@ -165,10 +162,10 @@ export class OrderService {
     }
 
     async handleWebhook(payload: any) {
-        const { invoiceId, status, reference } = payload;
+        const { invoiceId, status } = payload;
         console.log("WEBHOOK", payload)
-        const order = await this.orderRepository.findOne({ where: { uuid: reference } });
-        
+        const order = await this.orderRepository.findOne({ where: { invoiceId } });
+        console.log(order)
         if (!order) {
             throw new HttpException('Заказ не найден', HttpStatus.NOT_FOUND);
         }

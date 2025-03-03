@@ -27,4 +27,7 @@ export class OrderEntity extends AbstractEntity {
     
     @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PENDING })
     public status: OrderStatus;
+
+    @Column({ type: 'varchar', nullable: true }) // ✅ Добавляем поле для invoiceId
+    public invoiceId: string | null;
 }
