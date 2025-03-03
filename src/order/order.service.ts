@@ -137,8 +137,8 @@ export class OrderService {
                     destination: `Оплата заказа #${order.id}`,
                     comment: 'Оплата товаров',
                     basketOrder: invoicePayload,
-                    redirectUrl: `http://localhost:3000/success`,
-                    webHookUrl: `http://localhost:5000/orders/webhook`,
+                    redirectUrl: `https://primaflora-web-2759862b88c2.herokuapp.com/checkout/success`,
+                    webHookUrl: `https://primaflora-12d77550da26.herokuapp.com/orders/webhook`,
                     reference: order.uuid,
                 },
                 {
