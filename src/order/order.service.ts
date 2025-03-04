@@ -28,6 +28,12 @@ export class OrderService {
         @InjectRepository(UserEntity)
         private readonly userRepository: Repository<UserEntity>,
     ) {}
+    async getAll() {
+        return await this.orderRepository.find({
+            relations: ['user', 'items', 'items.product', 'items.product.translate'],
+            order: { createdAt: 'DESC' },
+        })
+    }
     // Оформление заказа из корзины
     async createOrder(userId: string) {
         const user = await this.userRepository.findOne({ where: { uuid: userId } });
