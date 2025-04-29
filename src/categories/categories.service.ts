@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { CategoryEntity } from '../entity/category.entity';
 import { SubcategoryEntity } from 'src/entity/subcategory.entity';
 import { LikeService } from 'src/like/like.service';
@@ -15,6 +15,7 @@ import { UpdateSubcategoryDto } from './dto/update-subcategory.dto';
 @Injectable()
 export class CategoriesService {
     constructor(
+        private readonly dataSource: DataSource, 
         @InjectRepository(CategoryEntity)
         private categoryRepository: Repository<CategoryEntity>,
         @InjectRepository(SubcategoryEntity)
@@ -114,20 +115,29 @@ export class CategoriesService {
 
     public async deleteSubcategory(id: string): Promise<void> {
         const subcategory = await this.subcategoryRepository.findOne({
-            where: { uuid: id },
-            relations: ['translate'],
+          where: { uuid: id },
+          relations: ['translate', 'products'],
         });
-    
+      
         if (!subcategory) {
-            throw new NotFoundException(`Подкатегория с id ${id} не найдена`);
+          throw new NotFoundException(`Подкатегория с id ${id} не найдена`);
         }
-    
-        // Удаление всех переводов
-        await this.subcategoryTranslateRepository.delete({ subcategory: subcategory });
-    
+      
+        // Удаляем связи между подкатегорией и продуктами из join-таблицы
+        if (subcategory.products && subcategory.products.length > 0) {
+          await this.dataSource
+            .createQueryBuilder()
+            .relation(SubcategoryEntity, 'products')
+            .of(subcategory) // укажем конкретную подкатегорию
+            .remove(subcategory.products); // удаляем все связи
+        }
+      
+        // Удаление переводов (они у тебя настроены с cascade + onDelete: 'CASCADE', так что можно пропустить вручную)
+        // await this.subcategoryTranslateRepository.delete({ subcategory });
+      
         // Удаление подкатегории
         await this.subcategoryRepository.delete({ uuid: id });
-    }
+    }      
 
     public async getAllSubcategories() {
         return await this.subcategoryRepository.find({
