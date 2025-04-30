@@ -27,7 +27,7 @@ export class CategoriesService {
     ) {}
 
     public async findAllCategories(): Promise<CategoryEntity[]> {
-        return await this.categoryRepository.find({relations: ['childrens', 'childrens.translate']});
+        return await this.categoryRepository.find({order: { order: 'ASC' }, relations: ['childrens', 'childrens.translate']});
     }
 
     public async updateCategory(id: string, updateCategoryDto: UpdateCategoryDto): Promise<CategoryEntity> {
@@ -41,67 +41,61 @@ export class CategoriesService {
         return await this.categoryRepository.save(category);
     }
 
-    public async updateSubcategory(id: string, subcategoryDto: UpdateSubcategoryDto) {
-        // Найти подкатегорию по ID
-        const subcategory = await this.subcategoryRepository.findOne({
-            where: { uuid: id },
-            relations: ['translate'],
-        });
-    
-        if (!subcategory) {
-            throw new NotFoundException(`Подкатегория с id ${id} не найдена`);
+    async updateOrder(data: { id: string; order: number }[]): Promise<void> {
+        for (const { id, order } of data) {
+          await this.updateCategory(id, { order });
         }
-    
-        // Обновить базовые поля подкатегории
-        if (subcategoryDto.image) {
-            subcategory.image = subcategoryDto.image;
-        }
-    
-        const language = subcategoryDto.translate.language; // Убедитесь, что в DTO передается `language`
-        const existingTranslation = subcategory.translate.find(
-            (t) => t.language === language,
+    }
+    public async reorderSubcategories(orderedIds: { id: string; order: number }[]): Promise<void> {
+        await Promise.all(
+            orderedIds.map(({ id, order }) =>
+              this.subcategoryRepository.update({uuid: id}, { order })
+            )
         );
-        
-        if (existingTranslation) {
-            // Обновляем существующий перевод
-            existingTranslation.name = subcategoryDto.translate.name;
-            existingTranslation.desc = subcategoryDto.translate.desc;
-    
-            // Сохраняем обновленный перевод
-            await this.subcategoryTranslateRepository.save(existingTranslation);
+      }
+
+    public async updateSubcategory(id: string, subcategoryDto: UpdateSubcategoryDto) {
+        const subcategory = await this.subcategoryRepository.findOne({
+          where: { uuid: id },
+          relations: ['translate', 'parent'],
+        });
+      
+        if (!subcategory) {
+          throw new NotFoundException(`Подкатегория с id ${id} не найдена`);
         }
-        // Обработка переводов
-        // const updatedTranslations = [];
-        // for (const translation of subcategoryDto.translate) {
-        //     // Найти существующий перевод по языку
-        //     const existingTranslation = subcategory.translate.find(
-        //         (t) => t.language === translation.language,
-        //     );
-    
-        //     if (existingTranslation) {
-        //         // Обновить существующий перевод
-        //         existingTranslation.name = translation.name;
-        //         existingTranslation.desc = translation.desc;
-        //         const updatedTranslation = await this.subcategoryTranslateRepository.save(
-        //             existingTranslation,
-        //         );
-        //         updatedTranslations.push(updatedTranslation);
-        //     } else {
-        //         // Создать новый перевод
-        //         const newTranslation = await this.subcategoryTranslateRepository.save({
-        //             name: translation.name,
-        //             desc: translation.desc,
-        //             language: translation.language,
-        //             subcategory: subcategory, // Связь с подкатегорией
-        //         });
-        //         updatedTranslations.push(newTranslation);
-        //     }
-        // }
-    
-        // Привязать обновленные переводы к подкатегории
-        // subcategory.translate = updatedTranslations;
-    
-        // Сохранить подкатегорию с обновленными данными
+      
+        // Обновить изображение
+        if (subcategoryDto.image) {
+          subcategory.image = subcategoryDto.image;
+        }
+      
+        // Обновить родительскую категорию, если передан новый parentId
+        console.log(subcategoryDto.parentId)
+        if (
+          subcategoryDto.parentId &&
+          (!subcategory.parent || subcategory.parent.uuid !== subcategoryDto.parentId)
+        ) {
+          const newParent = await this.categoryRepository.findOne({
+            where: { uuid: subcategoryDto.parentId },
+          });
+      
+          if (!newParent) {
+            throw new NotFoundException(`Категория с id ${subcategoryDto.parentId} не найдена`);
+          }
+      
+          subcategory.parent = newParent;
+        }
+      
+        // Обновить перевод
+        const language = subcategoryDto.translate.language;
+        const existingTranslation = subcategory.translate.find((t) => t.language === language);
+      
+        if (existingTranslation) {
+          existingTranslation.name = subcategoryDto.translate.name;
+          existingTranslation.desc = subcategoryDto.translate.desc;
+          await this.subcategoryTranslateRepository.save(existingTranslation);
+        }
+      
         return await this.subcategoryRepository.save(subcategory);
     }
 
@@ -194,35 +188,56 @@ export class CategoriesService {
         return await this.subcategoryRepository.findBy({ id: In(ids) });
     }
 
+    async moveToAnotherCategory(subcategoryId: string, newCategoryId: string): Promise<void> {
+        const subcategory = await this.subcategoryRepository.findOne({
+          where: { uuid: subcategoryId },
+          relations: ['parent'],
+        });
+        if (!subcategory) throw new NotFoundException('Подкатегория не найдена');
+      
+        const newParent = await this.categoryRepository.findOne({ where: { uuid: newCategoryId } });
+        if (!newParent) throw new NotFoundException('Категория не найдена');
+      
+        subcategory.parent = newParent;
+        await this.subcategoryRepository.save(subcategory);
+      }
+    
     public async findAllWithSub(language: string = 'ukr') {
-        // return await this.categoryRepository.find({ relations: ['childrens'] });
-        const categories = await await this.categoryRepository
+        const categories = await this.categoryRepository
             .createQueryBuilder('category')
             .leftJoinAndSelect('category.childrens', 'subcategory')
             .leftJoinAndSelect('subcategory.translate', 'subcategoryTranslate')
             .where('subcategoryTranslate.language = :language', { language })
+            .orderBy('category.order', 'ASC')             // Сортировка категорий
+            .addOrderBy('subcategory.order', 'ASC')       // Сортировка подкатегорий
             .getMany();
-
+    
         const transformCategories = categories.map(category => {
+            const sortedChildrens = [...category.childrens].sort(
+                (a, b) => (a.order ?? 0) - (b.order ?? 0)
+            );
+    
             return {
                 id: category.id,
                 uuid: category.uuid,
                 name: category.name_ukr,
-                childrens: category.childrens.map(subcategory => {
+                childrens: sortedChildrens.map(subcategory => {
+                    const translation = subcategory.translate.find(t => t.language === language);
                     return {
                         id: subcategory.id,
                         uuid: subcategory.uuid,
                         image: subcategory.image,
-                        name: subcategory.translate[0].name,
-                        desc: subcategory.translate[0].desc,
-                        language: subcategory.translate[0].language,
+                        name: translation?.name || '',
+                        desc: translation?.desc || '',
+                        language: translation?.language || language,
                     };
                 }),
             };
         });
-
+    
         return transformCategories;
     }
+    
 
     public async findSubcategoryWithProducts(
         subcategoryId: number,

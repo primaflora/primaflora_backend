@@ -25,9 +25,12 @@ export class ProductEntity extends AbstractEntity {
     @Column('int')
     public rating: number;
 
-    @ManyToMany(() => SubcategoryEntity, subcategory => subcategory.products, { cascade: true })
+    @ManyToMany(() => SubcategoryEntity, subcategory => subcategory.products, { cascade: true, onDelete: 'CASCADE' })
     @JoinTable() // Эта аннотация создаст промежуточную таблицу
     public categories: SubcategoryEntity[];
+
+    @Column({ type: 'text', array: true, nullable: true })
+    descriptionPoints: string[];
 
     @OneToMany(() => CommentEntity, comment => comment.product, { onDelete: 'CASCADE' })
     public comments: CommentEntity[];

@@ -12,4 +12,7 @@ export class CategoryEntity extends AbstractEntity {
 
     @OneToMany(() => SubcategoryEntity, subcategory => subcategory.parent)
     public childrens: SubcategoryEntity[];
+
+    @Column({ type: 'int', default: 0 })
+    order: number;
 }

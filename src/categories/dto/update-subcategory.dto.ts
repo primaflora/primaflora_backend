@@ -24,4 +24,6 @@ export class UpdateSubcategoryDto {
     @Type(() => TranslateDto)
     @IsNotEmpty()
     translate: TranslateDto;
+
+    parentId?: string;
 }

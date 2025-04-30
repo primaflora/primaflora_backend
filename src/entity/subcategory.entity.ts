@@ -21,4 +21,7 @@ export class SubcategoryEntity extends AbstractEntity {
 
     @ManyToMany(() => ProductEntity, product => product.categories)
     public products: ProductEntity[];
+
+    @Column({ type: 'int', default: 0 })
+    order: number;
 }

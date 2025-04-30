@@ -25,6 +25,8 @@ export class CreateProductDto {
 
     public translate: ProductTranslateDto[];
 
+    descriptionPoints: string[];
+
     @IsBoolean()
     readonly isPublished?: boolean; // Новый флаг
 }

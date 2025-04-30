@@ -57,6 +57,34 @@ export class CategoriesController {
         );
     }
 
+    @Put('/subcategory/:uuid/move')
+    async moveSubcategory(
+        @Param('uuid') subcategoryId: string,
+        @Body() body: { newCategoryId: string },
+    ) {
+        return this.categoriesService.moveToAnotherCategory(subcategoryId, body.newCategoryId);
+    }
+    @Put('/reorder')
+    async reorderCategories(@Body() body: { orderedIds: { id: string, order: number }[] }) {
+        console.log(body)
+        await this.categoriesService.updateOrder(body.orderedIds);
+        return { success: true };
+    }
+    @Put('/subcategory/reorder')
+    async reorderSubcategories(@Body() body: { orderedIds: { id: string; order: number }[] }) {
+    await this.categoriesService.reorderSubcategories(body.orderedIds);
+      return { success: true };
+    }
+    
+    @Put(':id')
+    public async updateCategory(
+        @Param('id') id: string,
+        @Body() updateCategoryDto: UpdateCategoryDto,
+    ) {
+        console.log("inside")
+        return await this.categoriesService.updateCategory(id, updateCategoryDto);
+    }
+
     @Post()
     async createCategory(@Body() categoryData: CreateCategoryDto) {
       return await this.categoriesService.createCategory(categoryData);
@@ -65,14 +93,6 @@ export class CategoriesController {
     @Post('/subcategory/create')
     public async createSubategory(@Body() subcategoryDto: SubcategoryDto) {
         return await this.categoriesService.createSubcategory(subcategoryDto);
-    }
-
-    @Put(':id')
-    public async updateCategory(
-        @Param('id') id: string,
-        @Body() updateCategoryDto: UpdateCategoryDto,
-    ) {
-        return await this.categoriesService.updateCategory(id, updateCategoryDto);
     }
 
     @Delete(':id')
