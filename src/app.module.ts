@@ -18,6 +18,7 @@ import { TokenService } from './token/token.service';
 import { RoleModule } from './role/role.module';
 import { XitemModule } from './xitem/xitem.module';
 import { OrderModule } from './order/order.module';
+import { SlidesModule } from './slides/slides.module';
 
 @Global()
 @Module({
@@ -42,6 +43,7 @@ import { OrderModule } from './order/order.module';
         RoleModule,
         XitemModule,
         OrderModule,
+        SlidesModule,
     ],
     controllers: [AppController],
 })
