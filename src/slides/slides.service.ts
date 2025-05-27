@@ -15,11 +15,30 @@ export class SlidesService {
         return this.slidesRepository.find();
     }
 
-    create(dto: CreateSlideDto) {
-        const slide = this.slidesRepository.create(dto);
+    async create(dto: CreateSlideDto) {
+        const last = await this.slidesRepository
+        .createQueryBuilder("slide")
+        .orderBy("slide.order", "DESC")
+        .getOne();
+
+         const slide = this.slidesRepository.create({
+            ...dto,
+            order: last ? last.order + 1 : 1,
+        });
+
         return this.slidesRepository.save(slide);
     }
+    async updateOrder(orderedIds: number[]) {
+        return orderedIds.map((id, index) =>
+            this.slidesRepository.update(id, { order: index }),
+        );
+    }
 
+    async update(id: number, data: Partial<Slide>) {
+        await this.slidesRepository.update(id, data);
+        return this.slidesRepository.findOneBy({ id });
+    }
+    
     remove(id: number) {
         return this.slidesRepository.delete(id);
     }
