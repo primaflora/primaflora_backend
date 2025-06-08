@@ -16,4 +16,10 @@ export class Slide {
 
   @Column({ default: 0 })
   order: number;
+
+  @Column({ default: '#444444', nullable: true })
+  textColor: string;
+
+  @Column({ nullable: true })
+  link: string;
 }
