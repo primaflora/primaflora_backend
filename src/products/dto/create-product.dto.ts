@@ -1,8 +1,7 @@
-import { IsBoolean, IsNumber, IsPositive, IsString, IsUrl, Min } from 'class-validator';
+import { IsBoolean, IsNumber, IsPositive, IsString, Min } from 'class-validator';
 
 export class CreateProductDto {
     @IsString()
-    @IsUrl()
     public photo_url: string;
 
     @IsNumber()

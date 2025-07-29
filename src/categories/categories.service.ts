@@ -100,6 +100,25 @@ export class CategoriesService {
     }
 
     public async deleteCategory(id: string): Promise<void> {
+        // Сначала находим категорию со всеми подкатегориями
+        const category = await this.categoryRepository.findOne({
+            where: { uuid: id },
+            relations: ['childrens']
+        });
+
+        if (!category) {
+            throw new NotFoundException(`Категория с id ${id} не найдена`);
+        }
+
+        // Если есть подкатегории, сначала удаляем их
+        if (category.childrens && category.childrens.length > 0) {
+            // Удаляем все подкатегории этой категории
+            for (const subcategory of category.childrens) {
+                await this.deleteSubcategory(subcategory.uuid);
+            }
+        }
+
+        // Теперь удаляем саму категорию
         const result = await this.categoryRepository.delete({ uuid: id });
 
         if (result.affected === 0) {

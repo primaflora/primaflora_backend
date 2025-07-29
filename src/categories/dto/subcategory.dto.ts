@@ -1,8 +1,8 @@
-import { IsString, IsUrl } from 'class-validator';
+import { IsString } from 'class-validator';
 import { AbstractDto } from '../../dto/abstract.dto';
 
 export class SubcategoryDto extends AbstractDto {
-    @IsUrl()
+    @IsString()
     image: string;
 
     translate: SubcategoryTranslate[];

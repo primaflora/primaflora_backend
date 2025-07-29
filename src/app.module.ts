@@ -19,6 +19,7 @@ import { RoleModule } from './role/role.module';
 import { XitemModule } from './xitem/xitem.module';
 import { OrderModule } from './order/order.module';
 import { SlidesModule } from './slides/slides.module';
+import { UploadModule } from './upload/upload.module';
 
 @Global()
 @Module({
@@ -44,6 +45,7 @@ import { SlidesModule } from './slides/slides.module';
         XitemModule,
         OrderModule,
         SlidesModule,
+        UploadModule,
     ],
     controllers: [AppController],
 })

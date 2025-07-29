@@ -10,6 +10,7 @@ import { CategoriesModule } from 'src/categories/categories.module';
 import { ProductTranslateEntity } from 'src/entity/product_t.entity';
 import { CartModule } from 'src/cart/cart.module';
 import { Xitem } from 'src/entities_from_db/entities/xitem.entity';
+import { UploadModule } from 'src/upload/upload.module';
 
 @Module({
     imports: [
@@ -23,6 +24,7 @@ import { Xitem } from 'src/entities_from_db/entities/xitem.entity';
         TokenModule,
         LikeModule,
         forwardRef(() => CartModule),
+        UploadModule,
     ],
     controllers: [ProductsController],
     providers: [
