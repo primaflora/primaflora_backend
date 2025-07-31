@@ -65,9 +65,12 @@ export class SlidesController {
   ) {
     console.log('=== Создание слайда с существующим изображением ===');
     console.log('Received body:', body);
+    console.log('existing_file_id:', body.existing_file_id);
+    console.log('All body properties:', Object.keys(body));
 
     let imageUrl = '';
     if (body.existing_file_id) {
+      console.log('Searching for file with ID:', body.existing_file_id);
       // Получаем информацию о файле из архива
       const file = await this.uploadService.getFileById(body.existing_file_id);
       if (file) {
@@ -76,13 +79,16 @@ export class SlidesController {
       } else {
         throw new Error(`Файл с ID ${body.existing_file_id} не найден в архиве`);
       }
+    } else {
+      console.log('No existing_file_id provided');
     }
 
     // Создаем данные для слайда
     const slideData: CreateSlideDto = {
       imageUrl: imageUrl,
-      title: body.title,
-      link: body.link,
+      title: body.title || '',
+      link: body.link || '',
+      textColor: body.textColor || '',
       isActive: true, // По умолчанию активный
     };
 

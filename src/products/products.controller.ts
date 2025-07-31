@@ -134,11 +134,12 @@ export class ProductsController {
         }
         
         // Создаем данные для продукта
-        const productData: Omit<CreateProductDto, 'rating'> = {
+        const productData: CreateProductDto = {
             photo_url: photo_url,
-            price_currency: body.price_currency,
-            price_points: body.price_points,
-            percent_discount: body.percent_discount,
+            price_currency: body.price_currency || 0,
+            price_points: body.price_points || 0,
+            percent_discount: body.percent_discount || 0,
+            rating: body.rating || 1,
             categoryIds: body.categoryIds, // Уже преобразованы в DTO
             translate: body.translate,
             descriptionPoints: body.descriptionPoints,
