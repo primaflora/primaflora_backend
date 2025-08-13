@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
 import { extname } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
 import { FileEntity } from '../entity/file.entity';
 
@@ -162,5 +162,40 @@ export class UploadService {
     });
 
     return await this.getFileById(id);
+  }
+
+  /**
+   * Удаляет файл по ID
+   */
+  async deleteFile(id: string): Promise<{ success: boolean; message: string }> {
+    try {
+      // Находим файл в базе данных
+      const file = await this.getFileById(id);
+      
+      if (!file) {
+        return {
+          success: false,
+          message: 'Файл не найден'
+        };
+      }
+
+      // Удаляем физический файл с диска
+      if (existsSync(file.path)) {
+        unlinkSync(file.path);
+      }
+
+      // Удаляем запись из базы данных
+      await this.fileRepository.delete(id);
+
+      return {
+        success: true,
+        message: 'Файл успешно удален'
+      };
+    } catch (error) {
+      return {
+        success: false,
+        message: `Ошибка при удалении файла: ${error.message}`
+      };
+    }
   }
 }

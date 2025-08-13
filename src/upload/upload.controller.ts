@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Put,
+  Delete,
   Param,
   Query,
   Body,
@@ -122,5 +123,20 @@ export class UploadController {
       body.description,
       body.tags
     );
+  }
+
+  @Delete('archive/:id')
+  async deleteFile(@Param('id') id: string) {
+    const file = await this.uploadService.getFileById(id);
+    if (!file) {
+      throw new NotFoundException('Файл не найден');
+    }
+
+    await this.uploadService.deleteFile(id);
+    
+    return {
+      message: 'Файл успешно удален',
+      deletedFileId: id
+    };
   }
 }
