@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards, UsePipes, UseInterceptors, UploadedFile, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards, UsePipes, UseInterceptors, UploadedFile, ValidationPipe, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Request } from 'express';
 import { CreateCommentDto } from './dto/create-comment';
 import { ProductsService } from './products.service';
@@ -247,6 +247,28 @@ export class ProductsController {
         }
         return this.productsService.update(uuid, updateProductDto, language);
     } 
+
+    @Patch('/update-with-existing-image/:uuid')
+    @UsePipes(new ValidateLanguagePipe())
+    @Role(EUserRole.ADMIN)
+    @UseGuards(RolesGuard)
+    async updateWithExistingImage(
+        @Param('uuid') uuid: string,
+        @Body() body: { existing_file_id?: string },
+        @AcceptLanguage() language: string,
+        @Req() req: Request
+    ) {
+        if (!body?.existing_file_id) {
+            throw new BadRequestException('existing_file_id is required');
+        }
+        const file = await this.uploadService.getFileById(body.existing_file_id);
+        if (!file) {
+            throw new NotFoundException(`File with id ${body.existing_file_id} not found`);
+        }
+        const updateDto: UpdateProductDto = {} as UpdateProductDto;
+        updateDto.photo_url = file.url;
+        return this.productsService.update(uuid, updateDto, language);
+    }
 
     private getTokenPayloadFromRequest(req: Request): any | null {
         if (!req.headers.authorization) {

@@ -105,8 +105,31 @@ export class SlidesController {
   }
 
   @Patch(':id')
-  async update(@Param('id') id: string, @Body() body: Partial<Slide>) {
-    return this.slidesService.update(+id, body);
+  async update(@Param('id') id: string, @Body() body: Partial<Slide> & { existing_file_id?: string }) {
+    const { existing_file_id, ...rest } = body;
+    // Если нет ни одного поля для обновления, возвращаем текущий слайд
+    if (Object.keys(rest).length === 0) {
+      return this.slidesService.findAll().then(slides => slides.find(s => s.id === +id));
+    }
+    return this.slidesService.update(+id, rest);
+  }
+
+  @Patch(':id/update-with-existing-image')
+  async updateWithExistingImage(
+    @Param('id') id: string,
+    @Body() body: { existing_file_id: string, [key: string]: any },
+    @Req() req: any
+  ) {
+    const { existing_file_id, ...rest } = body;
+    if (!existing_file_id) {
+      throw new Error('Не передан existing_file_id');
+    }
+    const file = await this.uploadService.getFileById(existing_file_id);
+    if (!file) {
+      throw new Error(`Файл с ID ${existing_file_id} не найден в архиве`);
+    }
+    // Обновляем только imageUrl, остальные поля игнорируем
+    return this.slidesService.update(+id, { imageUrl: file.url });
   }
 
   @Patch('update-with-image/:id')
