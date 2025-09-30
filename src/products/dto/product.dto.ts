@@ -30,4 +30,6 @@ export class ProductDto {
     public categoryIds: number[];
 
     public isPublished?: boolean;
+
+    public inStock?: boolean;
 }

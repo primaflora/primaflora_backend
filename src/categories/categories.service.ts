@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, In, Repository } from 'typeorm';
 import { CategoryEntity } from '../entity/category.entity';
 import { SubcategoryEntity } from 'src/entity/subcategory.entity';
+import { CommentEntity } from 'src/entity/comment.entity';
 import { LikeService } from 'src/like/like.service';
 import { TokenService } from 'src/token/token.service';
 import { SubcategoryDto } from './dto/subcategory.dto';
@@ -22,9 +23,25 @@ export class CategoriesService {
         private subcategoryRepository: Repository<SubcategoryEntity>,
         @InjectRepository(SubcategoryTranslateEntity)
         private subcategoryTranslateRepository: Repository<SubcategoryTranslateEntity>,
+        @InjectRepository(CommentEntity)
+        private commentRepository: Repository<CommentEntity>,
         private readonly likeService: LikeService,
         private readonly tokenService: TokenService
     ) {}
+
+    // Метод для динамического подсчета среднего рейтинга продукта
+    private async calculateProductRating(productId: number): Promise<number> {
+        const comments = await this.commentRepository.find({
+            where: { product: { id: productId } }
+        });
+
+        if (comments.length === 0) {
+            return 0;
+        }
+
+        const totalRating = comments.reduce((sum, comment) => sum + comment.rating, 0);
+        return Math.round((totalRating / comments.length) * 10) / 10;
+    }
 
     public async findAllCategories(): Promise<CategoryEntity[]> {
         return await this.categoryRepository.find({order: { order: 'ASC' }, relations: ['childrens', 'childrens.translate']});
@@ -35,6 +52,11 @@ export class CategoriesService {
 
         if (!category) {
             throw new NotFoundException(`Категория с id ${id} не найдена`);
+        }
+
+        // Инициализируем OneToMany отношения как массивы, если они не определены
+        if (!category.childrens || !Array.isArray(category.childrens)) {
+            category.childrens = [];
         }
 
         Object.assign(category, updateCategoryDto);
@@ -62,6 +84,14 @@ export class CategoriesService {
       
         if (!subcategory) {
           throw new NotFoundException(`Подкатегория с id ${id} не найдена`);
+        }
+
+        // Инициализируем OneToMany и ManyToMany отношения как массивы, если они не определены
+        if (!subcategory.translate || !Array.isArray(subcategory.translate)) {
+            subcategory.translate = [];
+        }
+        if (!subcategory.products || !Array.isArray(subcategory.products)) {
+            subcategory.products = [];
         }
       
         // Обновить изображение
@@ -141,7 +171,10 @@ export class CategoriesService {
     
     public async createCategory(categoryData: CreateCategoryDto): Promise<CategoryEntity> {
         console.log(categoryData)
-        const newCategory = this.categoryRepository.create(categoryData);
+        const newCategory = this.categoryRepository.create({
+            ...categoryData,
+            childrens: [] // Явно инициализируем пустой массив для отношения OneToMany
+        });
         return await this.categoryRepository.save(newCategory);
     }
 
@@ -175,7 +208,7 @@ export class CategoriesService {
     public async getSubcategory(uuid: string) {
         return await this.subcategoryRepository.findOneOrFail({
             where: { uuid },
-            relations: ['translate'],
+            relations: ['translate', 'parent'],
         });
     }
 
@@ -286,16 +319,17 @@ export class CategoriesService {
     if (!token) {
         return {
             ...subcategory,
-            products: subcategory.products.map(product => {
+            products: await Promise.all(subcategory.products.map(async product => {
                 const { translate, ...other } = product;
                 return {
                     ...other,
                     title: translate[0]?.title,
                     shortDesc: translate[0]?.shortDesc,
                     language: translate[0]?.language,
-                    comments: product.comments.length,
+                    rating: await this.calculateProductRating(product.id),
+                    commentsCount: product.comments.length,
                 };
-            }),
+            })),
         };
     }
 
@@ -312,7 +346,8 @@ export class CategoriesService {
                     title: translate[0]?.title,
                     shortDesc: translate[0]?.shortDesc,
                     language: translate[0]?.language,
-                    comments: product.comments.length,
+                    rating: await this.calculateProductRating(product.id),
+                    commentsCount: product.comments.length,
                     like: await this.likeService.findOne(
                         userPayload.id,
                         product.id

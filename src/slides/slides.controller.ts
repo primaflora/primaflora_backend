@@ -2,6 +2,7 @@ import { Controller, Get, Post, Body, Patch, Param, Delete, UseInterceptors, Upl
 import { SlidesService } from './slides.service';
 import { CreateSlideDto } from './dto/create-slide.dto';
 import { CreateSlideWithExistingImageDto } from './dto/create-slide-with-existing-image.dto';
+import { UpdateSlideWithExistingImageDto } from './dto/update-slide-with-existing-image.dto';
 import { UpdateSlideDto } from './dto/update-slide.dto';
 import { Slide } from './entities/slide.entity';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -117,19 +118,40 @@ export class SlidesController {
   @Patch(':id/update-with-existing-image')
   async updateWithExistingImage(
     @Param('id') id: string,
-    @Body() body: { existing_file_id: string, [key: string]: any },
+    @Body() body: UpdateSlideWithExistingImageDto,
     @Req() req: any
   ) {
-    const { existing_file_id, ...rest } = body;
-    if (!existing_file_id) {
+    console.log('=== Обновление слайда с существующим изображением ===');
+    console.log('Slide ID:', id);
+    console.log('Received body:', body);
+
+    if (!body.existing_file_id) {
       throw new Error('Не передан existing_file_id');
     }
-    const file = await this.uploadService.getFileById(existing_file_id);
-    if (!file) {
-      throw new Error(`Файл с ID ${existing_file_id} не найден в архиве`);
+
+    try {
+      const file = await this.uploadService.getFileById(body.existing_file_id);
+      if (!file) {
+        throw new Error(`Файл с ID ${body.existing_file_id} не найден в архиве`);
+      }
+
+      // Подготавливаем данные для обновления
+      const updateData: Partial<Slide> = {
+        imageUrl: file.url,
+        ...(body.title !== undefined && { title: body.title }),
+        ...(body.description !== undefined && { description: body.description }),
+        ...(body.link !== undefined && { link: body.link }),
+        ...(body.textColor !== undefined && { textColor: body.textColor }),
+        ...(body.isActive !== undefined && { isActive: body.isActive }),
+      };
+
+      console.log('Update data for service:', JSON.stringify(updateData, null, 2));
+      
+      return this.slidesService.update(+id, updateData);
+    } catch (error) {
+      console.error('Error updating slide with existing image:', error);
+      throw error;
     }
-    // Обновляем только imageUrl, остальные поля игнорируем
-    return this.slidesService.update(+id, { imageUrl: file.url });
   }
 
   @Patch('update-with-image/:id')

@@ -34,6 +34,65 @@ export class OrderService {
             order: { createdAt: 'DESC' },
         })
     }
+
+    // Получение истории заказов текущего пользователя
+    async getMyOrders(userUuid: string, language: string = 'ukr') {
+        const orders = await this.orderRepository
+            .createQueryBuilder('order')
+            .leftJoinAndSelect('order.items', 'items')
+            .leftJoinAndSelect('items.product', 'product')
+            .leftJoin('product.translate', 'product_t')
+            .addSelect([
+                'product_t.title',
+                'product_t.shortDesc',
+                'product_t.language'
+            ])
+            .leftJoin('order.user', 'user')
+            .where('user.uuid = :userUuid', { userUuid })
+            .andWhere('product_t.language = :language', { language })
+            .orderBy('order.createdAt', 'DESC')
+            .getMany();
+
+        // Форматируем данные для удобного использования на фронтенде
+        return orders.map(order => ({
+            id: order.id,
+            uuid: order.uuid,
+            totalPrice: order.totalPrice,
+            status: order.status,
+            createdAt: order.createdAt,
+            updatedAt: order.updatedAt,
+            invoiceId: order.invoiceId,
+            items: order.items.map(item => ({
+                id: item.id,
+                quantity: item.quantity,
+                price: item.price,
+                product: {
+                    id: item.product.id,
+                    uuid: item.product.uuid,
+                    photo_url: item.product.photo_url,
+                    title: item.product.translate?.[0]?.title || 'Без названия',
+                    shortDesc: item.product.translate?.[0]?.shortDesc || '',
+                    price_currency: item.product.price_currency,
+                    price_points: item.product.price_points,
+                }
+            }))
+        }));
+    }
+
+    // Проверка, купил ли пользователь конкретный товар
+    async hasUserPurchasedProduct(userUuid: string, productUuid: string): Promise<boolean> {
+        const purchasedProduct = await this.orderRepository
+            .createQueryBuilder('order')
+            .leftJoin('order.user', 'user')
+            .leftJoin('order.items', 'items')
+            .leftJoin('items.product', 'product')
+            .where('user.uuid = :userUuid', { userUuid })
+            .andWhere('product.uuid = :productUuid', { productUuid })
+            .andWhere('order.status IN (:...statuses)', { statuses: [OrderStatus.PAID, OrderStatus.SHIPPED, OrderStatus.COMPLETED] })
+            .getOne();
+
+        return !!purchasedProduct;
+    }
     // Оформление заказа из корзины
     async createOrder(userId: string) {
         const user = await this.userRepository.findOne({ where: { uuid: userId } });

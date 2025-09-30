@@ -78,4 +78,8 @@ export class CreateProductWithExistingImageDto {
     @Transform(({ value }) => value === 'true' || value === true)
     @IsBoolean()
     readonly isPublished?: boolean;
+
+    @Transform(({ value }) => value === 'true' || value === true)
+    @IsBoolean()
+    readonly inStock?: boolean;
 }

@@ -20,6 +20,12 @@ export class ProductTranslateEntity extends AbstractEntity {
     @Column()
     public language: string;
 
+    @Column({ type: 'varchar', nullable: true, length: 60 })
+    public seoTitle: string;
+
+    @Column({ type: 'text', nullable: true })
+    public seoDescription: string;
+
     // @Column({default: false})
     // public isPublished: boolean
 }

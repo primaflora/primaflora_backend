@@ -1,4 +1,4 @@
-import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, forwardRef, Inject, Injectable, NotFoundException, UnauthorizedException, ForbiddenException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CommentEntity } from 'src/entity/comment.entity';
 import { TokenService } from 'src/token/token.service';
@@ -12,6 +12,9 @@ import { ProductTranslateEntity } from 'src/entity/product_t.entity';
 import { CartService } from 'src/cart/cart.service';
 import { Xitem } from 'src/entities_from_db/entities/xitem.entity';
 import { UpdateProductDto } from './dto/update-product.dto';
+import { OrderService } from 'src/order/order.service';
+import { UserEntity } from 'src/entity/user.entity';
+import { SubcategoryEntity } from 'src/entity/subcategory.entity';
 
 @Injectable()
 export class ProductsService {
@@ -25,6 +28,12 @@ export class ProductsService {
         @InjectRepository(CommentEntity)
         private commentRepository: Repository<CommentEntity>,
 
+        @InjectRepository(UserEntity)
+        private userRepository: Repository<UserEntity>,
+
+        @InjectRepository(SubcategoryEntity)
+        private subcategoryRepository: Repository<SubcategoryEntity>,
+
         private readonly likeService: LikeService,
 
         private readonly tokenService: TokenService,
@@ -33,12 +42,15 @@ export class ProductsService {
 
         @Inject(forwardRef(() => CartService))
         private readonly cartService: CartService,
+
+        @Inject(forwardRef(() => OrderService))
+        private readonly orderService: OrderService,
     ) {}
 
     public async createComment(
         newComment: CreateCommentDto,
         token: string,
-        productId: number
+        productUuid: string
     ) {
         const userPayload = await this.tokenService.verifyToken(
             token,
@@ -48,12 +60,234 @@ export class ProductsService {
             throw new UnauthorizedException();
         }
 
-        return await this.commentRepository.save({
+        // Находим продукт по UUID
+        const product = await this.productRepository.findOne({
+            where: { uuid: productUuid }
+        });
+
+        if (!product) {
+            throw new NotFoundException('Товар не найден');
+        }
+
+        // Проверяем, купил ли пользователь этот товар
+        const hasPurchased = await this.orderService.hasUserPurchasedProduct(
+            userPayload.uuid, 
+            productUuid
+        );
+
+        if (!hasPurchased) {
+            throw new ForbiddenException('Вы можете оставлять отзывы только на товары, которые приобрели');
+        }
+
+        // Проверяем, не оставлял ли пользователь уже отзыв на этот товар
+        const existingComment = await this.commentRepository.findOne({
+            where: {
+                user: { id: userPayload.id },
+                product: { id: product.id }
+            }
+        });
+
+        if (existingComment) {
+            throw new ForbiddenException('Вы уже оставили отзыв на этот товар');
+        }
+
+        // Сохраняем новый комментарий
+        const savedComment = await this.commentRepository.save({
             text: newComment.text,
             rating: newComment.rating,
             user: { id: userPayload.id },
-            product: { id: productId },
+            product: { id: product.id },
         });
+
+        return savedComment;
+    }
+
+    // Метод для подсчета и обновления среднего рейтинга продукта
+    // Метод для динамического подсчета среднего рейтинга продукта
+    public async calculateProductRating(productId: number): Promise<number> {
+        console.log(`[CALCULATE RATING] Calculating rating for product ID: ${productId}`);
+        
+        // Получаем все комментарии для этого продукта
+        const comments = await this.commentRepository.find({
+            where: { product: { id: productId } }
+        });
+
+        console.log(`[CALCULATE RATING] Found ${comments.length} comments for product ${productId}`);
+        
+        if (comments.length === 0) {
+            console.log(`[CALCULATE RATING] No comments found, returning rating 0`);
+            return 0;
+        }
+
+        // Считаем средний рейтинг
+        const ratings = comments.map(c => c.rating);
+        const totalRating = comments.reduce((sum, comment) => sum + comment.rating, 0);
+        const averageRating = Math.round((totalRating / comments.length) * 10) / 10; // Округляем до 1 знака после запятой
+
+        console.log(`[CALCULATE RATING] Ratings: [${ratings.join(', ')}]`);
+        console.log(`[CALCULATE RATING] Total: ${totalRating}, Count: ${comments.length}, Average: ${averageRating}`);
+
+        return averageRating;
+    }
+
+    // Метод для получения количества комментариев для продукта
+    public async getProductCommentsCount(productId: number): Promise<number> {
+        return await this.commentRepository.count({
+            where: { product: { id: productId } }
+        });
+    }
+
+    // Проверка, может ли пользователь оставить комментарий на товар
+    public async canUserCommentProduct(userUuid: string | null, productUuid: string): Promise<boolean> {
+        if (!userUuid) {
+            return false; // Неавторизованный пользователь не может комментировать
+        }
+
+        try {
+            // Проверяем, купил ли пользователь товар
+            const hasPurchased = await this.orderService.hasUserPurchasedProduct(userUuid, productUuid);
+            
+            if (!hasPurchased) {
+                return false; // Не покупал товар
+            }
+
+            // Находим пользователя и продукт для проверки существующего комментария
+            const user = await this.userRepository.findOne({
+                where: { uuid: userUuid }
+            });
+
+            const product = await this.productRepository.findOne({
+                where: { uuid: productUuid }
+            });
+
+            if (!user || !product) {
+                return false;
+            }
+
+            // Проверяем, не оставлял ли уже комментарий
+            const existingComment = await this.commentRepository.findOne({
+                where: {
+                    user: { id: user.id },
+                    product: { id: product.id }
+                }
+            });
+
+            return !existingComment; // Можно комментировать, если комментария еще нет
+        } catch (error) {
+            console.error('Error checking if user can comment:', error);
+            return false;
+        }
+    }
+
+    // Улучшенная версия - проверка с userId
+    public async canUserCommentProductById(userId: number | null, productUuid: string): Promise<boolean> {
+        if (!userId) {
+            return false;
+        }
+
+        try {
+            // Находим пользователя по ID для получения его UUID
+            const user = await this.userRepository.findOne({
+                where: { id: userId }
+            });
+
+            if (!user) {
+                return false;
+            }
+
+            return await this.canUserCommentProduct(user.uuid, productUuid);
+        } catch (error) {
+            console.error('Error checking if user can comment by ID:', error);
+            return false;
+        }
+    }
+
+    // Получение рандомных товаров по подкатегориям с учетом их порядка
+    public async getRandomProductsBySubcategories(language: string = 'ukr', token?: string) {
+        let isAdmin = false;
+
+        // Проверка токена и роли пользователя
+        if (token) {
+            try {
+                const userPayload = await this.tokenService.verifyToken(token, 'access');
+                isAdmin = userPayload.role.name === 'admin';
+            } catch (error) {
+                console.warn('Token verification failed. Assuming user is not admin.');
+            }
+        }
+
+        // Получаем все подкатегории, отсортированные по порядку их родительских категорий, а затем по их собственному порядку
+        const subcategories = await this.subcategoryRepository
+            .createQueryBuilder('subcategory')
+            .leftJoinAndSelect('subcategory.parent', 'parent')
+            .leftJoin('subcategory.translate', 'subcategory_t')
+            .addSelect(['subcategory_t.name', 'subcategory_t.language'])
+            .where('subcategory_t.language = :language', { language })
+            .orderBy('parent.order', 'ASC')
+            .addOrderBy('subcategory.order', 'ASC')
+            .getMany();
+
+        const result = [];
+
+        for (const subcategory of subcategories) {
+            // Строим запрос для получения товаров подкатегории
+            const query = this.productRepository
+                .createQueryBuilder('product')
+                .leftJoin('product.categories', 'categories')
+                .leftJoin('product.translate', 'product_t')
+                .addSelect([
+                    'product_t.title',
+                    'product_t.shortDesc',
+                    'product_t.language'
+                ])
+                .where('categories.id = :subcategoryId', { subcategoryId: subcategory.id })
+                .andWhere('product_t.language = :language', { language });
+
+            // Добавляем условие isPublished, если пользователь не админ
+            if (!isAdmin) {
+                query.andWhere('product.isPublished = :isPublished', { isPublished: true });
+            }
+
+            // Получаем все товары подкатегории
+            const allProducts = await query.getMany();
+
+            // Перемешиваем товары и берем максимум 8
+            const shuffledProducts = allProducts.sort(() => Math.random() - 0.5);
+            const randomProducts = shuffledProducts.slice(0, 8);
+
+            // Форматируем товары для возврата
+            const formattedProducts = await Promise.all(randomProducts.map(async product => ({
+                id: product.id,
+                uuid: product.uuid,
+                photo_url: product.photo_url,
+                price_currency: product.price_currency,
+                price_points: product.price_points,
+                percent_discount: product.percent_discount,
+                rating: await this.calculateProductRating(product.id),
+                commentsCount: await this.getProductCommentsCount(product.id),
+                title: product.translate?.[0]?.title || 'Без названия',
+                shortDesc: product.translate?.[0]?.shortDesc || '',
+                isPublished: product.isPublished,
+                inStock: product.inStock
+            })));
+
+            // Добавляем подкатегорию с её товарами в результат
+            if (formattedProducts.length > 0) {
+                result.push({
+                    subcategory: {
+                        id: subcategory.id,
+                        uuid: subcategory.uuid,
+                        name: subcategory.translate?.[0]?.name || 'Без названия',
+                        image: subcategory.image,
+                        order: subcategory.order,
+                        parentOrder: subcategory.parent?.order || 0
+                    },
+                    products: formattedProducts
+                });
+            }
+        }
+
+        return result;
     }
 
     public async getPaginated(pagination: number, token?: string){
@@ -92,7 +326,7 @@ export class ProductsService {
 
 
         if (!token) {
-            return res.map(product => ({
+            return await Promise.all(res.map(async product => ({
                 id: product.id,
                 uuid: product.uuid,
                 price_currency: product.price_currency,
@@ -101,16 +335,40 @@ export class ProductsService {
                 photo_url: product.photo_url,
                 price_points: product.price_points,
                 percent_discount: product.percent_discount,
-                rating: product.rating,
+                rating: await this.calculateProductRating(product.id),
+                commentsCount: await this.getProductCommentsCount(product.id),
                 categories: product.categories.map(cat => ({
                     id: cat.id,
                     name: cat.translate[0]?.name,
                 })),
-            }));
+                inStock: product.inStock
+            })));
         }
     
         // Если пользователь авторизован, добавляем информацию о лайках
-        const userPayload = await this.tokenService.verifyToken(token, 'access');
+        let userPayload;
+        try {
+            userPayload = await this.tokenService.verifyToken(token, 'access');
+        } catch (error) {
+            console.warn('[WARN] Token verification failed in getPaginated. Returning products without likes.');
+            // Возвращаем продукты без информации о лайках при истекшем/недействительном токене
+            return await Promise.all(res.map(async product => ({
+                id: product.id,
+                uuid: product.uuid,
+                price_currency: product.price_currency,
+                shortDesc: product.translate[0]?.shortDesc,
+                title: product.translate[0]?.title,
+                photo_url: product.photo_url,
+                price_points: product.price_points,
+                percent_discount: product.percent_discount,
+                rating: await this.calculateProductRating(product.id),
+                commentsCount: await this.getProductCommentsCount(product.id),
+                categories: product.categories.map(cat => ({
+                    id: cat.id,
+                    name: cat.translate[0]?.name,
+                })),
+            })));
+        }
     
         return await Promise.all(
             res.map(async product => ({
@@ -122,13 +380,15 @@ export class ProductsService {
                 photo_url: product.photo_url,
                 price_points: product.price_points,
                 percent_discount: product.percent_discount,
-                rating: product.rating,
+                rating: await this.calculateProductRating(product.id),
+                commentsCount: await this.getProductCommentsCount(product.id),
                 like: await this.likeService.findOne(userPayload.id, product.id),
                 categories: product.categories.map(cat => ({
                     id: cat.id,
                     name: cat.translate[0]?.name,
                 })),
-                isPublished: product.isPublished
+                isPublished: product.isPublished,
+                inStock: product.inStock
             }))
         );
 
@@ -192,7 +452,8 @@ export class ProductsService {
                 categories: categories, // Обновлено для поддержки нескольких категорий
                 title: productTranslation?.title,
                 language: productTranslation?.language,
-                isPublished: product.isPublished
+                isPublished: product.isPublished,
+                inStock: product.inStock
             };
         });    
     }
@@ -217,6 +478,8 @@ export class ProductsService {
                 'product_t.language',
                 'product_t.shortDesc',
                 'product_t.desc',
+                'product_t.seoTitle',
+                'product_t.seoDescription',
             ])
             .where('product.uuid = :productUid', { productUid: uuid })
             .andWhere('product_t.language = :language', { language })
@@ -236,11 +499,18 @@ export class ProductsService {
             title: translate[0].title,
             desc: translate[0].desc,
             shortDesc: translate[0].shortDesc,
+            seoTitle: translate[0].seoTitle,
+            seoDescription: translate[0].seoDescription,
             language: translate[0].language,
+            inStock: res.inStock,
+            rating: await this.calculateProductRating(res.id),
         }
 
         if (!token) {
-            return updatedRes;
+            return {
+                ...updatedRes,
+                canComment: false, // Неавторизованный пользователь не может комментировать
+            };
         }
 
         let userPayload;
@@ -248,12 +518,20 @@ export class ProductsService {
             userPayload = await this.tokenService.verifyToken(token, 'access');
         } catch (e) {
             console.log('[WARN] User is not authorized! Token => ', token);
-            return;
+            // Возвращаем данные продукта без информации о лайке при истекшем/недействительном токене
+            return {
+                ...updatedRes,
+                canComment: false,
+            };
         }
+
+        // Проверяем, может ли пользователь комментировать этот товар
+        const canComment = await this.canUserCommentProduct(userPayload.uuid, uuid);
 
         return {
             ...updatedRes,
             like: await this.likeService.findOne(userPayload.id, res.id),
+            canComment: canComment,
         };
     }
 
@@ -285,69 +563,160 @@ export class ProductsService {
             createProductDto.categoryIds
         );
 
+        // Сначала создаем и сохраняем продукт без переводов
         const newProduct = this.productRepository.create({
-            ...createProductDto,
+            photo_url: createProductDto.photo_url,
+            price_currency: createProductDto.price_currency,
+            price_points: createProductDto.price_points,
+            percent_discount: createProductDto.percent_discount,
             rating: 0,
             categories: categories,
+            descriptionPoints: createProductDto.descriptionPoints,
             isPublished: createProductDto.isPublished || false,
+            inStock: createProductDto.inStock !== undefined ? createProductDto.inStock : true,
         });
 
+        const savedProduct = await this.productRepository.save(newProduct);
+
+        // Теперь создаем переводы со ссылкой на продукт
         const translations = [];
         for (const translation of createProductDto.translate) {
             console.log('Translation: ', translation);
-            const newTranslate = await this.productTranslateRepository.save(translation);
-            translations.push(newTranslate);
+            const newTranslate = this.productTranslateRepository.create({
+                ...translation,
+                product: savedProduct,
+            });
+            const savedTranslate = await this.productTranslateRepository.save(newTranslate);
+            translations.push(savedTranslate);
         }
 
-        newProduct.translate = translations;
-        return await this.productRepository.save(newProduct);
+        // Обновляем продукт с переводами
+        savedProduct.translate = translations;
+        return savedProduct;
     }
 
     async update(uuid: string, updateProductDto: UpdateProductDto, language: string) {
-        console.log("Inside update product")
-        console.log(updateProductDto.categoryIds);
-        const product = await this.productRepository.findOne({
-            where: { uuid },
-            relations: ['translate', 'categories'],
-        });
-        // const queryBulder = this.productRepository
-        //     .createQueryBuilder('product')
-        //     .where('product.uuid = :productUid', { productUid: uuid });
-        //     if(updateProductDto.translate) {
-        //         queryBulder.leftJoinAndSelect('product.translate', 'product_t')
-        //             .andWhere('product_t.language = :language', { language });
-        //     }
+        console.log("=== PRODUCT UPDATE START ===");
+        console.log("Product UUID:", uuid);
+        console.log("Update DTO:", JSON.stringify(updateProductDto, null, 2));
+        console.log("Language:", language);
 
-        // const product = await queryBulder.getOne();
+        // Сначала обработаем переводы отдельно, если они есть
+        if (updateProductDto.translate) {
+            console.log("=== UPDATING TRANSLATIONS ===");
+            const product = await this.productRepository.findOne({
+                where: { uuid },
+                relations: ['translate'],
+            });
+
+            if (!product) {
+                throw new BadRequestException('Wrong uuid!');
+            }
+
+            console.log("Current translations:", product.translate);
+            console.log("New translation data:", updateProductDto.translate);
+
+            const savedTranslation = await this.productTranslateRepository.save({
+                ...product.translate[0],
+                ...updateProductDto.translate,
+            });
+            console.log("Translation saved:", savedTranslation);
+        }
+
+        // Теперь обработаем категории отдельно, если они есть
+        if (updateProductDto.categoryIds) {
+            console.log("=== UPDATING CATEGORIES ===");
+            console.log("Category IDs to set (raw):", updateProductDto.categoryIds);
+            
+            // Фильтруем null значения из categoryIds
+            const validCategoryIds = updateProductDto.categoryIds.filter(id => id !== null && id !== undefined);
+            console.log("Category IDs to set (filtered):", validCategoryIds);
+            
+            const newCategories = await this.categoryService.findSubcategoriesByIds(validCategoryIds);
+            console.log('Found new categories:', newCategories.map(c => ({ id: c.id, uuid: c.uuid })));
+
+            // Сначала найдем продукт, чтобы получить его ID и текущие категории
+            const productForCategories = await this.productRepository.findOne({
+                where: { uuid },
+                relations: ['categories']
+            });
+
+            if (productForCategories) {
+                console.log("Product found for categories update:", { id: productForCategories.id, uuid: productForCategories.uuid });
+                const currentCategories = productForCategories.categories || [];
+                console.log('Current categories:', currentCategories.map(c => ({ id: c.id, uuid: c.uuid })));
+
+                // Сначала удаляем все текущие категории
+                if (currentCategories.length > 0) {
+                    console.log("Removing current categories...");
+                    await this.productRepository
+                        .createQueryBuilder()
+                        .relation(ProductEntity, 'categories')
+                        .of(productForCategories.id)
+                        .remove(currentCategories);
+                    console.log("Current categories removed");
+                }
+
+                // Затем добавляем новые категории
+                if (newCategories.length > 0) {
+                    console.log("Adding new categories...");
+                    await this.productRepository
+                        .createQueryBuilder()
+                        .relation(ProductEntity, 'categories')
+                        .of(productForCategories.id)
+                        .add(newCategories);
+                    console.log("New categories added");
+                }
+
+                // Проверяем результат
+                const updatedProduct = await this.productRepository.findOne({
+                    where: { uuid },
+                    relations: ['categories']
+                });
+                console.log('Categories after update:', updatedProduct?.categories?.map(c => ({ id: c.id, uuid: c.uuid })));
+            } else {
+                console.log("ERROR: Product not found for categories update");
+            }
+        } else {
+            console.log("=== NO CATEGORIES UPDATE REQUESTED ===");
+        }
+
+        // Теперь загружаем продукт без сложных отношений и обновляем остальные поля
+        console.log("=== UPDATING SIMPLE FIELDS ===");
+        const product = await this.productRepository.findOne({
+            where: { uuid }
+        });
 
         if (!product) {
             throw new BadRequestException('Wrong uuid!');
         }
 
-        if (updateProductDto.translate) {
-            await this.productTranslateRepository.save({
-                ...product.translate[0],
-                ...updateProductDto.translate,
-            });
-        }
-        console.log('Categories before save:', product.categories);
+        console.log("Product found for simple fields update:", { id: product.id, uuid: product.uuid });
 
-        if (!Array.isArray(product.categories)) {
-            throw new Error('product.categories must be an array');
-        }
+        // Проверяем, изменился ли статус inStock с false на true
+        const wasOutOfStock = !product.inStock;
+        const willBeInStock = updateProductDto.inStock !== undefined ? updateProductDto.inStock : product.inStock;
 
-        if (updateProductDto.categoryIds) {
-            const categories = await this.categoryService.findSubcategoriesByIds(updateProductDto.categoryIds);
-            console.log(categories)
-            // Присваиваем категории как массив сущностей
-            product.categories = categories;
-        }
-    
-        // Обновление остальных данных
-        return await this.productRepository.save({
+        // Создаем копию DTO без полей, которые мы уже обработали
+        const { translate, categoryIds, ...simpleFields } = updateProductDto;
+        console.log("Simple fields to update:", simpleFields);
+        
+        // Обновляем простые поля
+        const updatedProduct = await this.productRepository.save({
             ...product,
-            ...updateProductDto
+            ...simpleFields
         });
+        console.log("Simple fields updated:", { id: updatedProduct.id, uuid: updatedProduct.uuid });
+
+        // Если товар стал в наличии (был недоступен, а теперь доступен), уведомляем watchers
+        if (wasOutOfStock && willBeInStock) {
+            console.log("=== NOTIFYING WATCHERS ===");
+            // Используем отдельный запрос для уведомления, чтобы избежать циклических зависимостей
+            this.notifyProductWatchers(updatedProduct.uuid);
+        }
+
+        console.log("=== PRODUCT UPDATE COMPLETE ===");
+        return updatedProduct;
         
         // if ('translate' in updateProductDto) {
         //     const { translate, ...other } = updateProductDto;
@@ -399,6 +768,68 @@ export class ProductsService {
             .delete()
             .from(CommentEntity)
             .where('comment."product_id" = :productId', { productId })
+    }
+
+    // Метод для создания тестовых данных с рейтингами
+    async createTestRatingData() {
+        console.log('[TEST DATA] Starting to create test rating data...');
+        
+        // Находим несколько первых продуктов
+        const products = await this.productRepository.find({
+            take: 5, // Возьмем первые 5 продуктов
+        });
+
+        console.log(`[TEST DATA] Found ${products.length} products to add ratings`);
+
+        // Находим первого пользователя для создания комментариев
+        const user = await this.userRepository.findOne({
+            where: {},
+            order: { id: 'ASC' }
+        });
+
+        if (!user) {
+            throw new Error('No users found in database');
+        }
+
+        console.log(`[TEST DATA] Using user ${user.id} for comments`);
+
+        const testComments = [];
+
+        for (let i = 0; i < products.length; i++) {
+            const product = products[i];
+            
+            // Создаем 2-3 комментария для каждого продукта с разными рейтингами
+            const ratingsForProduct = [
+                { rating: 5, text: 'Отличный товар! Очень доволен покупкой.' },
+                { rating: 4, text: 'Хорошее качество, рекомендую.' },
+                { rating: 3, text: 'Неплохо, но есть недостатки.' },
+            ];
+
+            // Добавляем случайное количество комментариев (1-3)
+            const commentsCount = Math.floor(Math.random() * 3) + 1;
+            
+            for (let j = 0; j < commentsCount; j++) {
+                const commentData = ratingsForProduct[j];
+                
+                const comment = await this.commentRepository.save({
+                    text: commentData.text,
+                    rating: commentData.rating,
+                    user: { id: user.id },
+                    product: { id: product.id },
+                });
+                
+                testComments.push(comment);
+                console.log(`[TEST DATA] Created comment for product ${product.id}: rating ${commentData.rating}`);
+            }
+        }
+
+        console.log(`[TEST DATA] Successfully created ${testComments.length} test comments`);
+        
+        return {
+            message: `Created ${testComments.length} test comments for ${products.length} products`,
+            comments: testComments.length,
+            products: products.length
+        };
     }
 
     // public async findAllByQuery(query: ProductQueryDto) {
@@ -461,4 +892,34 @@ export class ProductsService {
     // remove(id: number) {
     //     return `This action removes a #${id} product`;
     // }
+
+    /**
+     * Уведомляет пользователей, отслеживающих товар, о том что он стал доступен
+     */
+    private async notifyProductWatchers(productUuid: string): Promise<void> {
+        try {
+            // Используем прямой запрос к базе, чтобы избежать циклических зависимостей
+            const productWatchRepository = this.productRepository.manager.getRepository('ProductWatchEntity');
+            
+            const watches = await productWatchRepository.find({
+                where: {
+                    product: { uuid: productUuid },
+                    isActive: true,
+                    notifiedAt: null
+                },
+                relations: ['user', 'product']
+            });
+
+            // Помечаем как уведомленных
+            for (const watch of watches) {
+                watch.notifiedAt = new Date();
+                await productWatchRepository.save(watch);
+            }
+
+            // Здесь можно добавить логику отправки email/push уведомлений
+            console.log(`Notified ${watches.length} users about product ${productUuid} availability`);
+        } catch (error) {
+            console.error('Error notifying product watchers:', error);
+        }
+    }
 }

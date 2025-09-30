@@ -7,8 +7,8 @@ export class CategoryEntity extends AbstractEntity {
     // @OneToMany(() => CategoryTranslateEntity, categoryT => categoryT.category)
     // public translate: CategoryTranslateEntity[];
 
-    @Column('varchar')
-    name_ukr: string;
+    @Column('varchar', { nullable: true })
+    name_ukr: string | null;
 
     @OneToMany(() => SubcategoryEntity, subcategory => subcategory.parent)
     public childrens: SubcategoryEntity[];

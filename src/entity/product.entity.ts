@@ -4,6 +4,7 @@ import { SubcategoryEntity } from './subcategory.entity';
 import { CommentEntity } from './comment.entity';
 import { ProductTranslateEntity } from './product_t.entity';
 import { CartEntity } from './cart.entity';
+import { ProductWatchEntity } from './product-watch.entity';
 
 @Entity('product')
 export class ProductEntity extends AbstractEntity {
@@ -40,4 +41,10 @@ export class ProductEntity extends AbstractEntity {
 
     @Column({ type: 'boolean', default: false })
     public isPublished: boolean;
+
+    @Column({ type: 'boolean', default: true })
+    public inStock: boolean;
+
+    @OneToMany(() => ProductWatchEntity, watch => watch.product, { onDelete: 'CASCADE' })
+    public watchers: ProductWatchEntity[];
 }

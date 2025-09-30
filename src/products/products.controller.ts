@@ -32,6 +32,13 @@ export class ProductsController {
         return this.productsService.getAll(language, token);
     }
 
+    @Get('/getRandomBySubcategories')
+    @UsePipes(new ValidateLanguagePipe())
+    getRandomBySubcategories(@AcceptLanguage() language: string, @Req() req: Request) {
+        const token = req.headers['authorization']?.split(' ')[1];
+        return this.productsService.getRandomProductsBySubcategories(language, token);
+    }
+
     @Get('/getPaginated')
     @UsePipes(new ValidateLanguagePipe())
     getPaginated(@AcceptLanguage() language: string, @Body() pagination: number,@Req() req: Request){
@@ -104,6 +111,7 @@ export class ProductsController {
             translate: body.translate ? JSON.parse(body.translate) : [],
             descriptionPoints: body.descriptionPoints ? JSON.parse(body.descriptionPoints) : [],
             isPublished: body.isPublished === 'true' || body.isPublished === true,
+            inStock: body.inStock === 'true' || body.inStock === true,
         };
         
         console.log('Product data for service:', JSON.stringify(productData, null, 2));
@@ -144,6 +152,7 @@ export class ProductsController {
             translate: body.translate,
             descriptionPoints: body.descriptionPoints,
             isPublished: body.isPublished,
+            inStock: body.inStock,
         };
         
         console.log('Product data for service:', JSON.stringify(productData, null, 2));
@@ -151,20 +160,23 @@ export class ProductsController {
         return this.productsService.create(productData);
     }
 
-    @Role(EUserRole.ADMIN)
-    @UseGuards(RolesGuard)
-    @Post('/createComment/:productId')
-    create(
+    @Post('/createComment/:productUuid')
+    createComment(
         @Body() createCommentDto: CreateCommentDto,
-        @Param('productId') productId: number,
+        @Param('productUuid') productUuid: string,
         @Req() req: Request
     ) {
         const token = req.headers.authorization.replace('Bearer ', '');
         return this.productsService.createComment(
             createCommentDto,
             token,
-            productId
+            productUuid
         );
+    }
+
+    @Post('/createTestData')
+    createTestData() {
+        return this.productsService.createTestRatingData();
     }
 
     @Delete('/:uuid')

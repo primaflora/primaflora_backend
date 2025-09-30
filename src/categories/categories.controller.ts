@@ -11,14 +11,19 @@ import {
     UsePipes,
     UseInterceptors,
     UploadedFile,
+    UseGuards,
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AcceptLanguage } from 'src/common/decorators/accept-language.decorator';
 import { ValidateLanguagePipe } from 'src/common/pipes/accept-language.pipe';
+import { Role } from 'src/common/decorators/role.decorator';
+import { EUserRole } from 'src/enum/role.enum';
+import { RolesGuard } from 'src/common/guards/roles.guard';
 import { CategoriesService } from './categories.service';
 import { SubcategoryDto } from './dto/subcategory.dto';
 import { SubcategoryWithImageDto } from './dto/subcategory-with-image.dto';
 import { SubcategoryWithExistingImageDto } from './dto/subcategory-with-existing-image.dto';
+import { UpdateSubcategoryWithExistingImageDto } from './dto/update-subcategory-with-existing-image.dto';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { UpdateSubcategoryDto } from './dto/update-subcategory.dto';
@@ -247,6 +252,44 @@ export class CategoriesController {
             updateSubcategoryDto.image = imageUrl;
         }
         return await this.categoriesService.updateSubcategory(id, updateSubcategoryDto);
+    }
+
+    @Put('/subcategory-with-existing-image/:id')
+    @Role(EUserRole.ADMIN)
+    @UseGuards(RolesGuard)
+    public async updateSubcategoryWithExistingImage(
+        @Param('id') id: string,
+        @Body() body: UpdateSubcategoryWithExistingImageDto,
+        @Req() req: Request
+    ) {
+        console.log('=== Обновление подкатегории с существующим изображением ===');
+        console.log('Subcategory ID:', id);
+        console.log('Received body:', body);
+
+        const updateData: UpdateSubcategoryDto = {
+            translate: body.translate,
+            parentId: body.parentId
+        } as UpdateSubcategoryDto;
+
+        // Если указан ID существующего файла, получаем его URL
+        if (body.existing_file_id) {
+            try {
+                const file = await this.uploadService.getFileById(body.existing_file_id);
+                if (file) {
+                    updateData.image = file.url;
+                    console.log('Using existing image:', file.url);
+                } else {
+                    throw new Error(`Файл с ID ${body.existing_file_id} не найден в архиве`);
+                }
+            } catch (error) {
+                console.error('Error fetching file from archive:', error);
+                throw error;
+            }
+        }
+
+        console.log('Update data for service:', JSON.stringify(updateData, null, 2));
+        
+        return await this.categoriesService.updateSubcategory(id, updateData);
     }
 
     // Удаление подкатегории

@@ -4,6 +4,7 @@ import { CartEntity } from './cart.entity';
 import { LikeEntity } from './like.entity';
 import { RoleEntity } from './role.entity';
 import { OrderEntity } from './order.entity';
+import { ProductWatchEntity } from './product-watch.entity';
 
 @Entity({ name: 'user' })
 export class UserEntity extends AbstractEntity {
@@ -52,6 +53,9 @@ export class UserEntity extends AbstractEntity {
 
     @OneToMany(() => LikeEntity, like => like.user, { onDelete: 'CASCADE' })
     public likes: LikeEntity[];
+
+    @OneToMany(() => ProductWatchEntity, watch => watch.user, { onDelete: 'CASCADE' })
+    public watchedProducts: ProductWatchEntity[];
 
     @ManyToOne(() => RoleEntity)
     @JoinColumn({ name: 'role_id' })

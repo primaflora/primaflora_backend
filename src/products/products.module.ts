@@ -11,6 +11,12 @@ import { ProductTranslateEntity } from 'src/entity/product_t.entity';
 import { CartModule } from 'src/cart/cart.module';
 import { Xitem } from 'src/entities_from_db/entities/xitem.entity';
 import { UploadModule } from 'src/upload/upload.module';
+import { OrderModule } from 'src/order/order.module';
+import { UserEntity } from 'src/entity/user.entity';
+import { SubcategoryEntity } from 'src/entity/subcategory.entity';
+import { ProductWatchEntity } from 'src/entity/product-watch.entity';
+import { ProductWatchController } from './product-watch.controller';
+import { ProductWatchService } from './product-watch.service';
 
 @Module({
     imports: [
@@ -18,22 +24,27 @@ import { UploadModule } from 'src/upload/upload.module';
             ProductEntity,
             ProductTranslateEntity,
             CommentEntity,
+            UserEntity,
+            SubcategoryEntity,
+            ProductWatchEntity,
             Xitem
         ]),
         CategoriesModule,
         TokenModule,
         LikeModule,
         forwardRef(() => CartModule),
+        forwardRef(() => OrderModule),
         UploadModule,
     ],
-    controllers: [ProductsController],
+    controllers: [ProductsController, ProductWatchController],
     providers: [
         ProductsService,
+        ProductWatchService,
         // {
         //     provide: APP_GUARD,
         //     useClass: RolesGuard,
         // }
     ],
-    exports: [ProductsService],
+    exports: [ProductsService, ProductWatchService],
 })
 export class ProductsModule {}

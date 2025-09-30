@@ -28,6 +28,9 @@ export class CreateProductDto {
 
     @IsBoolean()
     readonly isPublished?: boolean; // Новый флаг
+
+    @IsBoolean()
+    readonly inStock?: boolean; // Флаг наличия товара
 }
 
 export class ProductTranslateDto {
@@ -42,4 +45,8 @@ export class ProductTranslateDto {
 
     @IsString()
     public language: string;
+
+    public seoTitle?: string;
+
+    public seoDescription?: string;
 }
