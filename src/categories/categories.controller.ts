@@ -91,14 +91,7 @@ export class CategoriesController {
       return { success: true };
     }
     
-    @Put(':id')
-    public async updateCategory(
-        @Param('id') id: string,
-        @Body() updateCategoryDto: UpdateCategoryDto,
-    ) {
-        console.log("inside")
-        return await this.categoriesService.updateCategory(id, updateCategoryDto);
-    }
+
 
     @Post()
     async createCategory(@Body() categoryData: CreateCategoryDto) {
@@ -306,5 +299,50 @@ export class CategoriesController {
     public async getSubcategory(@Param('uuid') uuid: string) {
         console.log("id", uuid);
         return await this.categoriesService.getSubcategory(uuid);
+    }
+    
+    // Диагностический роут для проверки связей
+    @Get('/diagnose-orphans')
+    public async diagnoseOrphantSubcategories() {
+        return await this.categoriesService.diagnoseOrphantSubcategories();
+    }
+    
+    // Тестовый роут для безопасного изменения порядка
+    @Put('/reorder-safe')
+    async reorderCategoriesSafe(@Body() body: { orderedIds: { id: string, order: number }[] }) {
+        console.log('[reorderCategoriesSafe] Received data:', body);
+        
+        // Сначала проверим текущее состояние
+        const beforeOrphans = await this.categoriesService.diagnoseOrphantSubcategories();
+        console.log('[reorderCategoriesSafe] Orphans before:', beforeOrphans.orphanSubcategories);
+        
+        // Выполним обновление порядка
+        await this.categoriesService.updateOrder(body.orderedIds);
+        
+        // Проверим состояние после
+        const afterOrphans = await this.categoriesService.diagnoseOrphantSubcategories();
+        console.log('[reorderCategoriesSafe] Orphans after:', afterOrphans.orphanSubcategories);
+        
+        return { 
+            success: true,
+            orphansBefore: beforeOrphans.orphanSubcategories,
+            orphansAfter: afterOrphans.orphanSubcategories
+        };
+    }
+
+    // ВАЖНО: Общий роут :id должен быть в КОНЦЕ, после всех специфических роутов
+    @Put(':id')  
+    public async updateCategory(
+        @Param('id') id: string,
+        @Body() updateCategoryDto: UpdateCategoryDto,
+    ) {
+        console.log("updateCategory called with id:", id)
+        return await this.categoriesService.updateCategory(id, updateCategoryDto);
+    }
+    
+    // Роут для исправления orphan подкатегорий
+    @Post('/fix-orphans')
+    public async fixOrphanSubcategories() {
+        return await this.categoriesService.fixOrphanSubcategories();
     }
 }

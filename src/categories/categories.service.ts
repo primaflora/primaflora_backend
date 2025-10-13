@@ -48,19 +48,29 @@ export class CategoriesService {
     }
 
     public async updateCategory(id: string, updateCategoryDto: UpdateCategoryDto): Promise<CategoryEntity> {
-        const category = await this.categoryRepository.findOne({ where: { uuid: id } });
+        const category = await this.categoryRepository.findOne({ 
+            where: { uuid: id },
+            relations: ['childrens'] // ВАЖНО: загружаем отношения!
+        });
 
         if (!category) {
             throw new NotFoundException(`Категория с id ${id} не найдена`);
         }
 
-        // Инициализируем OneToMany отношения как массивы, если они не определены
-        if (!category.childrens || !Array.isArray(category.childrens)) {
-            category.childrens = [];
+        console.log(`[updateCategory] Before update: category ${category.name_ukr} has ${category.childrens?.length || 0} children`);
+
+        // Обновляем только переданные поля, чтобы не потерять отношения
+        if (updateCategoryDto.name_ukr !== undefined) {
+            category.name_ukr = updateCategoryDto.name_ukr;
+        }
+        if (updateCategoryDto.order !== undefined) {
+            category.order = updateCategoryDto.order;
         }
 
-        Object.assign(category, updateCategoryDto);
-        return await this.categoryRepository.save(category);
+        const savedCategory = await this.categoryRepository.save(category);
+        console.log(`[updateCategory] After update: category ${savedCategory.name_ukr} has ${savedCategory.childrens?.length || 0} children`);
+        
+        return savedCategory;
     }
 
     async updateOrder(data: { id: string; order: number }[]): Promise<void> {
@@ -165,8 +175,102 @@ export class CategoriesService {
 
     public async getAllSubcategories() {
         return await this.subcategoryRepository.find({
-            relations: ['translate'], // Подгружаем переводы и категорию, если нужно
+            relations: ['translate', 'parent'], // Подгружаем переводы и категорию
         });
+    }
+    
+    // Диагностический метод для проверки связей
+    public async diagnoseOrphantSubcategories() {
+        console.log('[DIAGNOSTIC] Checking orphan subcategories...');
+        
+        const allSubcategories = await this.subcategoryRepository.find({
+            relations: ['translate', 'parent']
+        });
+        
+        const orphans = allSubcategories.filter(sub => !sub.parent);
+        
+        console.log(`[DIAGNOSTIC] Found ${orphans.length} orphan subcategories out of ${allSubcategories.length} total:`);
+        
+        for (const orphan of orphans) {
+            const translation = orphan.translate?.find(t => t.language === 'ukr');
+            console.log(`[DIAGNOSTIC] Orphan: ${orphan.uuid} - "${translation?.name || 'No name'}" (id: ${orphan.id})`);
+        }
+        
+        return {
+            totalSubcategories: allSubcategories.length,
+            orphanSubcategories: orphans.length,
+            orphans: orphans.map(orphan => {
+                const translation = orphan.translate?.find(t => t.language === 'ukr');
+                return {
+                    id: orphan.id,
+                    uuid: orphan.uuid,
+                    name: translation?.name || 'No name'
+                };
+            })
+        };
+    }
+    
+    // Метод для восстановления связей между подкатегориями и категориями
+    public async fixOrphanSubcategories() {
+        console.log('[FIX] Starting to fix orphan subcategories...');
+        
+        // Мапинг подкатегорий к категориям на основе логики названий
+        const subcategoryToCategory = {
+            // Косметичні засоби (id: 68, uuid: e679a1b7-f729-411b-9a01-025833a9b429)
+            'Profline – Професійний догляд за шкірою в домашніх умовах': 68,
+            'Profline Biogold - Серія з біозолотом': 68,
+            
+            // ДРУКОВАНА ПРОДУКЦІЯ (id: 104, uuid: b94e9bd8-3567-41eb-9d0c-1eaa2fdcdb2d)
+            'Література компанії': 104,
+            
+            // СИСТЕМИ ОРГАНІЗМУ (id: 103, uuid: a6a2015e-509d-42c0-a1f0-efcbb2958a83)
+            'Покривна система': 103,
+            'Продукція для дітей': 101, // Дієтичні добавки
+            
+            // Новий блок продукту (id: 199, uuid: 9fadc1e6-b0b7-4de6-8bc1-b48be57aa53b) 
+            'Нова підкатегорія': 199,
+            'Сувенірна продукція': 199,
+            'Актуально зараз': 199,
+            'ТОП продажів': 199,
+            'Акції': 199,
+            'ttt': 199, // Тестовая категория
+        };
+        
+        const orphans = await this.subcategoryRepository.find({
+            relations: ['translate', 'parent']
+        });
+        
+        const actualOrphans = orphans.filter(sub => !sub.parent);
+        let fixedCount = 0;
+        
+        for (const orphan of actualOrphans) {
+            const translation = orphan.translate?.find(t => t.language === 'ukr');
+            const name = translation?.name || '';
+            
+            if (subcategoryToCategory[name]) {
+                const categoryId = subcategoryToCategory[name];
+                const category = await this.categoryRepository.findOne({ where: { id: categoryId } });
+                
+                if (category) {
+                    orphan.parent = category;
+                    await this.subcategoryRepository.save(orphan);
+                    console.log(`[FIX] Fixed: "${name}" -> "${category.name_ukr}" (category id: ${categoryId})`);
+                    fixedCount++;
+                } else {
+                    console.log(`[FIX] Warning: Category with id ${categoryId} not found for subcategory "${name}"`);
+                }
+            } else {
+                console.log(`[FIX] Warning: No mapping found for subcategory "${name}"`);
+            }
+        }
+        
+        console.log(`[FIX] Fixed ${fixedCount} out of ${actualOrphans.length} orphan subcategories`);
+        
+        return {
+            totalOrphans: actualOrphans.length,
+            fixedCount: fixedCount,
+            message: `Fixed ${fixedCount} orphan subcategories`
+        };
     }
     
     public async createCategory(categoryData: CreateCategoryDto): Promise<CategoryEntity> {
@@ -236,17 +340,23 @@ export class CategoriesService {
       }
     
     public async findAllWithSub(language: string = 'ukr') {
+        console.log('[CategoriesService] Getting categories with subcategories for language:', language);
+        
         const categories = await this.categoryRepository
             .createQueryBuilder('category')
             .leftJoinAndSelect('category.childrens', 'subcategory')
-            .leftJoinAndSelect('subcategory.translate', 'subcategoryTranslate')
-            .where('subcategoryTranslate.language = :language', { language })
+            .leftJoinAndSelect('subcategory.translate', 'subcategoryTranslate', 'subcategoryTranslate.language = :language')
             .orderBy('category.order', 'ASC')             // Сортировка категорий
             .addOrderBy('subcategory.order', 'ASC')       // Сортировка подкатегорий
+            .setParameter('language', language)
             .getMany();
+            
+
+            
+        console.log(`[CategoriesService] Found ${categories.length} categories`);
     
         const transformCategories = categories.map(category => {
-            const sortedChildrens = [...category.childrens].sort(
+            const sortedChildrens = [...(category.childrens || [])].sort(
                 (a, b) => (a.order ?? 0) - (b.order ?? 0)
             );
     
@@ -267,7 +377,7 @@ export class CategoriesService {
                 }),
             };
         });
-    
+        
         return transformCategories;
     }
     
