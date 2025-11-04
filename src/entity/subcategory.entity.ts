@@ -9,6 +9,12 @@ export class SubcategoryEntity extends AbstractEntity {
     @Column()
     image: string;
 
+    @Column({ nullable: true })
+    label?: string;
+
+    @Column({ nullable: true })
+    labelColor?: string;
+
     @OneToMany(
         () => SubcategoryTranslateEntity,
         translate => translate.subcategory,

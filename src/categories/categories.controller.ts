@@ -155,7 +155,9 @@ export class CategoriesController {
         const subcategoryData = {
             image: imageUrl,
             parent_uid: body.parent_uid,
-            translate: body.translate ? JSON.parse(body.translate) : []
+            translate: body.translate ? JSON.parse(body.translate) : [],
+            label: body.label,
+            labelColor: body.labelColor
         } as SubcategoryDto;
 
         console.log('Subcategory data for service:', JSON.stringify(subcategoryData, null, 2));
@@ -187,7 +189,9 @@ export class CategoriesController {
         const subcategoryData = {
             image: imageUrl,
             parent_uid: body.parent,
-            translate: body.translate
+            translate: body.translate,
+            label: body.label,
+            labelColor: body.labelColor
         } as SubcategoryDto;
 
         console.log('Subcategory data for service:', JSON.stringify(subcategoryData, null, 2));
@@ -261,7 +265,9 @@ export class CategoriesController {
 
         const updateData: UpdateSubcategoryDto = {
             translate: body.translate,
-            parentId: body.parentId
+            parentId: body.parentId,
+            label: body.label,
+            labelColor: body.labelColor
         } as UpdateSubcategoryDto;
 
         // Если указан ID существующего файла, получаем его URL
@@ -344,5 +350,11 @@ export class CategoriesController {
     @Post('/fix-orphans')
     public async fixOrphanSubcategories() {
         return await this.categoriesService.fixOrphanSubcategories();
+    }
+
+    // Временный роут для настройки лейблов специальных категорий
+    @Post('/setup-special-labels')
+    public async setupSpecialLabels() {
+        return await this.categoriesService.setupSpecialLabels();
     }
 }

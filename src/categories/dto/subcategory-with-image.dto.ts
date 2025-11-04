@@ -1,4 +1,4 @@
-import { IsString } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 class SubcategoryTranslate {
@@ -22,4 +22,12 @@ export class SubcategoryWithImageDto {
         return Array.isArray(value) ? value : [];
     })
     public translate: SubcategoryTranslate[];
+
+    @IsOptional()
+    @IsString()
+    public label?: string;
+
+    @IsOptional()
+    @IsString()
+    public labelColor?: string;
 }

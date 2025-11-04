@@ -205,11 +205,12 @@ export class ProductsService {
     // Получение рандомных товаров по подкатегориям с учетом их порядка
     public async getRandomProductsBySubcategories(language: string = 'ukr', token?: string) {
         let isAdmin = false;
+        let userPayload = null;
 
         // Проверка токена и роли пользователя
         if (token) {
             try {
-                const userPayload = await this.tokenService.verifyToken(token, 'access');
+                userPayload = await this.tokenService.verifyToken(token, 'access');
                 isAdmin = userPayload.role.name === 'admin';
             } catch (error) {
                 console.warn('Token verification failed. Assuming user is not admin.');
@@ -217,7 +218,7 @@ export class ProductsService {
         }
 
         // Получаем все подкатегории, отсортированные по порядку их родительских категорий, а затем по их собственному порядку
-        const subcategories = await this.subcategoryRepository
+        const allSubcategories = await this.subcategoryRepository
             .createQueryBuilder('subcategory')
             .leftJoinAndSelect('subcategory.parent', 'parent')
             .leftJoin('subcategory.translate', 'subcategory_t')
@@ -226,6 +227,10 @@ export class ProductsService {
             .orderBy('parent.order', 'ASC')
             .addOrderBy('subcategory.order', 'ASC')
             .getMany();
+
+        // Перемешиваем подкатегории и берем случайные 10
+        const shuffledSubcategories = allSubcategories.sort(() => Math.random() - 0.5);
+        const subcategories = shuffledSubcategories.slice(0, 10);
 
         const result = [];
 
@@ -256,20 +261,39 @@ export class ProductsService {
             const randomProducts = shuffledProducts.slice(0, 8);
 
             // Форматируем товары для возврата
-            const formattedProducts = await Promise.all(randomProducts.map(async product => ({
-                id: product.id,
-                uuid: product.uuid,
-                photo_url: product.photo_url,
-                price_currency: product.price_currency,
-                price_points: product.price_points,
-                percent_discount: product.percent_discount,
-                rating: await this.calculateProductRating(product.id),
-                commentsCount: await this.getProductCommentsCount(product.id),
-                title: product.translate?.[0]?.title || 'Без названия',
-                shortDesc: product.translate?.[0]?.shortDesc || '',
-                isPublished: product.isPublished,
-                inStock: product.inStock
-            })));
+            const formattedProducts = await Promise.all(randomProducts.map(async product => {
+                // Получаем информацию о лайке для авторизованного пользователя
+                let like = null;
+                if (userPayload) {
+                    // Ищем лайк пользователя для данного товара
+                    like = await this.likeService.findOne(userPayload.id, product.id);
+                }
+
+                return {
+                    id: product.id,
+                    uuid: product.uuid,
+                    photo_url: product.photo_url,
+                    price_currency: product.price_currency,
+                    price_points: product.price_points,
+                    percent_discount: product.percent_discount,
+                    rating: await this.calculateProductRating(product.id),
+                    commentsCount: await this.getProductCommentsCount(product.id),
+                    title: product.translate?.[0]?.title || 'Без названия',
+                    shortDesc: product.translate?.[0]?.shortDesc || '',
+                    isPublished: product.isPublished,
+                    inStock: product.inStock,
+                    // Добавляем информацию о лайке
+                    like: like ? { id: like.id, uuid: like.uuid } : null,
+                    // Добавляем информацию о категории для правильного отображения лейблов
+                    categories: [{
+                        id: subcategory.id,
+                        uuid: subcategory.uuid,
+                        label: subcategory.label,
+                        labelColor: subcategory.labelColor,
+                        translate: subcategory.translate
+                    }]
+                };
+            }));
 
             // Добавляем подкатегорию с её товарами в результат
             if (formattedProducts.length > 0) {
@@ -280,7 +304,9 @@ export class ProductsService {
                         name: subcategory.translate?.[0]?.name || 'Без названия',
                         image: subcategory.image,
                         order: subcategory.order,
-                        parentOrder: subcategory.parent?.order || 0
+                        parentOrder: subcategory.parent?.order || 0,
+                        label: subcategory.label,
+                        labelColor: subcategory.labelColor
                     },
                     products: formattedProducts
                 });
@@ -307,7 +333,7 @@ export class ProductsService {
             .createQueryBuilder('product')
             .leftJoinAndSelect('product.categories', 'categories')
             .leftJoin('categories.translate', 'category_t')
-            .addSelect(['category_t.name', 'category_t.language'])
+            .addSelect(['category_t.name', 'category_t.language', 'categories.label', 'categories.labelColor'])
             .leftJoin('product.translate', 'product_t')
             .addSelect([
                 'product_t.title',
@@ -339,7 +365,13 @@ export class ProductsService {
                 commentsCount: await this.getProductCommentsCount(product.id),
                 categories: product.categories.map(cat => ({
                     id: cat.id,
-                    name: cat.translate[0]?.name,
+                    uuid: cat.uuid,
+                    label: cat.label,
+                    labelColor: cat.labelColor,
+                    translate: [{
+                        name: cat.translate[0]?.name,
+                        language: cat.translate[0]?.language,
+                    }]
                 })),
                 inStock: product.inStock
             })));
@@ -365,7 +397,13 @@ export class ProductsService {
                 commentsCount: await this.getProductCommentsCount(product.id),
                 categories: product.categories.map(cat => ({
                     id: cat.id,
-                    name: cat.translate[0]?.name,
+                    uuid: cat.uuid,
+                    label: cat.label,
+                    labelColor: cat.labelColor,
+                    translate: [{
+                        name: cat.translate[0]?.name,
+                        language: cat.translate[0]?.language,
+                    }]
                 })),
             })));
         }
@@ -385,7 +423,13 @@ export class ProductsService {
                 like: await this.likeService.findOne(userPayload.id, product.id),
                 categories: product.categories.map(cat => ({
                     id: cat.id,
-                    name: cat.translate[0]?.name,
+                    uuid: cat.uuid,
+                    label: cat.label,
+                    labelColor: cat.labelColor,
+                    translate: [{
+                        name: cat.translate[0]?.name,
+                        language: cat.translate[0]?.language,
+                    }]
                 })),
                 isPublished: product.isPublished,
                 inStock: product.inStock
@@ -413,7 +457,7 @@ export class ProductsService {
             .createQueryBuilder('product')
             .leftJoinAndSelect('product.categories', 'categories')
             .leftJoin('categories.translate', 'category_t')
-            .addSelect(['category_t.name', 'category_t.language'])
+            .addSelect(['category_t.name', 'category_t.language', 'categories.label', 'categories.labelColor'])
             .leftJoin('product.translate', 'product_t')
             .addSelect(['product_t.title', 'product_t.language'])
             .where('product_t.language = :language', { language })
@@ -439,8 +483,12 @@ export class ProductsService {
                     createdAt: category.createdAt,
                     updatedAt: category.updatedAt,
                     image: category.image,
-                    name: categoryTranslation?.name,
-                    language: categoryTranslation?.language,
+                    label: category.label,
+                    labelColor: category.labelColor,
+                    translate: [{
+                        name: categoryTranslation?.name,
+                        language: categoryTranslation?.language,
+                    }]
                 };
             });
             // Return the transformed product
@@ -471,7 +519,7 @@ export class ProductsService {
             .leftJoinAndSelect('comments.user', 'commentUser') // Пользователи комментариев
             .leftJoinAndSelect('product.categories', 'categories') // ManyToMany: категории продукта
             .leftJoin('categories.translate', 'category_t') // Переводы категорий
-            .addSelect(['category_t.name', 'category_t.language'])
+            .addSelect(['category_t.name', 'category_t.language', 'categories.label', 'categories.labelColor'])
             .leftJoin('product.translate', 'product_t') // Переводы продукта
             .addSelect([
                 'product_t.title',

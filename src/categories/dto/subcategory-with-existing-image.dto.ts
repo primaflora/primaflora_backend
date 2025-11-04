@@ -37,4 +37,12 @@ export class SubcategoryWithExistingImageDto {
         return Array.isArray(value) ? value : [];
     })
     public translate: SubcategoryTranslate[];
+
+    @IsOptional()
+    @IsString()
+    public label?: string;
+
+    @IsOptional()
+    @IsString()
+    public labelColor?: string;
 }

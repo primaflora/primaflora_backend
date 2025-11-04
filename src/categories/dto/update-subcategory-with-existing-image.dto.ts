@@ -28,4 +28,12 @@ export class UpdateSubcategoryWithExistingImageDto {
     @IsOptional()
     @IsString()
     public parentId?: string;
+
+    @IsOptional()
+    @IsString()
+    public label?: string;
+
+    @IsOptional()
+    @IsString()
+    public labelColor?: string;
 }

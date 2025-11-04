@@ -26,4 +26,12 @@ export class UpdateSubcategoryDto {
     translate: TranslateDto;
 
     parentId?: string;
+
+    @IsOptional()
+    @IsString()
+    label?: string;
+
+    @IsOptional()
+    @IsString()
+    labelColor?: string;
 }

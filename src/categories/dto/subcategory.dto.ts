@@ -9,6 +9,10 @@ export class SubcategoryDto extends AbstractDto {
 
     @IsString()
     parent_uid: string;
+
+    label?: string;
+    
+    labelColor?: string;
 }
 
 class SubcategoryTranslate {

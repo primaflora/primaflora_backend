@@ -108,6 +108,14 @@ export class CategoriesService {
         if (subcategoryDto.image) {
           subcategory.image = subcategoryDto.image;
         }
+
+        // Обновить лейбл и цвет лейбла
+        if (subcategoryDto.label !== undefined) {
+          subcategory.label = subcategoryDto.label;
+        }
+        if (subcategoryDto.labelColor !== undefined) {
+          subcategory.labelColor = subcategoryDto.labelColor;
+        }
       
         // Обновить родительскую категорию, если передан новый parentId
         console.log(subcategoryDto.parentId)
@@ -290,6 +298,8 @@ export class CategoriesService {
         const newSubcategory = await this.subcategoryRepository.create({
             image: subcategory.image,
             parent: parent,
+            label: subcategory.label,
+            labelColor: subcategory.labelColor,
         });
 
         const translations = [];
@@ -438,6 +448,14 @@ export class CategoriesService {
                     language: translate[0]?.language,
                     rating: await this.calculateProductRating(product.id),
                     commentsCount: product.comments.length,
+                    // Добавляем информацию о подкатегории
+                    categories: [{
+                        id: subcategory.id,
+                        uuid: subcategory.uuid,
+                        label: subcategory.label,
+                        labelColor: subcategory.labelColor,
+                        translate: subcategory.translate
+                    }],
                 };
             })),
         };
@@ -462,9 +480,71 @@ export class CategoriesService {
                         userPayload.id,
                         product.id
                     ),
+                    // Добавляем информацию о подкатегории
+                    categories: [{
+                        id: subcategory.id,
+                        uuid: subcategory.uuid,
+                        label: subcategory.label,
+                        labelColor: subcategory.labelColor,
+                        translate: subcategory.translate
+                    }],
                 };
             }),
         ),
     };
+    }
+
+    // Временный метод для настройки лейблов специальных категорий
+    public async setupSpecialLabels() {
+        // Специальные категории с их лейблами
+        const specialCategoriesConfig = {
+            'ТОП продажів': { label: 'ТОП', labelColor: '#FF6B35' },
+            'Акції': { label: 'АКЦІЯ', labelColor: '#E74C3C' },
+            'Актуально зараз': { label: 'АКТУАЛЬНО', labelColor: '#72BF44' }
+        };
+
+        const results = [];
+
+        for (const [categoryName, config] of Object.entries(specialCategoriesConfig)) {
+            // Ищем подкатегорию по имени
+            const subcategory = await this.subcategoryRepository
+                .createQueryBuilder('subcategory')
+                .leftJoinAndSelect('subcategory.translate', 'translate')
+                .where('translate.name = :name', { name: categoryName })
+                .andWhere('translate.language = :language', { language: 'ukr' })
+                .getOne();
+
+            if (subcategory) {
+                // Обновляем лейбл и цвет
+                subcategory.label = config.label;
+                subcategory.labelColor = config.labelColor;
+                
+                await this.subcategoryRepository.save(subcategory);
+                
+                results.push({
+                    categoryName,
+                    subcategoryId: subcategory.id,
+                    updated: true,
+                    label: config.label,
+                    labelColor: config.labelColor
+                });
+                
+                console.log(`Обновлен лейбл для категории "${categoryName}": ${config.label} (${config.labelColor})`);
+            } else {
+                results.push({
+                    categoryName,
+                    updated: false,
+                    message: 'Категория не найдена'
+                });
+                
+                console.log(`Категория "${categoryName}" не найдена`);
+            }
+        }
+
+        return {
+            success: true,
+            message: 'Special category labels setup completed',
+            results
+        };
     }
 }

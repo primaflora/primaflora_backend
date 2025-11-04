@@ -17,6 +17,19 @@ export class LikeService {
 
     public async setLike(userUuid: string, product: ProductEntity) {
         const user = await this.userService.findOneById(userUuid);
+        
+        // Проверяем, не существует ли уже лайк от этого пользователя на этот продукт
+        const existingLike = await this.likeRepository.findOne({
+            where: { 
+                user: { uuid: userUuid }, 
+                product: { id: product.id } 
+            }
+        });
+        
+        if (existingLike) {
+            throw new BadRequestException('Товар вже в списку побажань');
+        }
+        
         return this.likeRepository.save({ user, product });
     }
 
