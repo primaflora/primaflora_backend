@@ -18,9 +18,7 @@ export const typeOrmAsyncConfig: TypeOrmModuleAsyncOptions = {
             // password: configService.get<string>('DB_PASSWORD', 'Tos_11235'),
             // database: configService.get<string>('DB_DATABASE_NAME', 'primaflora_test'),
             url: configService.get<string>('DATABASE_URL'),
-            ssl: {
-                rejectUnauthorized: false,
-            },
+            ssl: false,
             entities: [__dirname + '/../**/*.entity{.ts,.js}'],
             synchronize: true,
             // logging: true,
