@@ -6,7 +6,7 @@ module.exports = new DataSource({
     ssl: {
         rejectUnauthorized: false,
     },
-    entities: [__dirname + '/**/*.entity{.ts,.js}'],
+    entities: [__dirname + '/../**/*.entity{.ts,.js}', '!**/*entities_from_db/**'],
     migrations: [__dirname + '/migrations/*{.ts,.js}'],
     synchronize: true,
     logging: true,
