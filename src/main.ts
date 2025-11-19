@@ -10,7 +10,7 @@ async function bootstrap() {
     const app = await NestFactory.create<NestExpressApplication>(AppModule, {
         cors: {
             credentials: true,
-            origin: ['http://localhost:3000', 'https://primaflora.store', 'https://primaflora-web-2759862b88c2.herokuapp.com'] //process.env.CORS_ORIGIN,
+            origin: ['http://localhost:3000', 'https://primaflora.store', 'https://store.primaflora.com.ua', 'https://primaflora-web-2759862b88c2.herokuapp.com'] //process.env.CORS_ORIGIN,
         },
     });
     const config = app.get<ConfigService>(ConfigService);
