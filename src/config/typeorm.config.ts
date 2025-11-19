@@ -21,7 +21,8 @@ export const typeOrmAsyncConfig: TypeOrmModuleAsyncOptions = {
             ssl: false,
             entities: [
                 __dirname + '/../entity/*.entity{.ts,.js}',
-                __dirname + '/../**/entities/*.entity{.ts,.js}'
+                __dirname + '/../slides/entities/*.entity{.ts,.js}',
+                __dirname + '/../order/entities/*.entity{.ts,.js}'
             ],
             synchronize: true,
             // logging: true,

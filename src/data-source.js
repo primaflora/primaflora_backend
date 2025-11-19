@@ -8,8 +8,8 @@ module.exports = new DataSource({
     },
     entities: [
         __dirname + '/../entity/*.entity{.ts,.js}',
-        __dirname + '/../**/entities/*.entity{.ts,.js}',
-        '!**/*entities_from_db/**'
+        __dirname + '/../slides/entities/*.entity{.ts,.js}',
+        __dirname + '/../order/entities/*.entity{.ts,.js}'
     ],
     migrations: [__dirname + '/migrations/*{.ts,.js}'],
     synchronize: true,
