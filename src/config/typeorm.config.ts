@@ -19,7 +19,10 @@ export const typeOrmAsyncConfig: TypeOrmModuleAsyncOptions = {
             // database: configService.get<string>('DB_DATABASE_NAME', 'primaflora_test'),
             url: configService.get<string>('DATABASE_URL'),
             ssl: false,
-            entities: [__dirname + '/../entity/*.entity{.ts,.js}'],
+            entities: [
+                __dirname + '/../entity/*.entity{.ts,.js}',
+                __dirname + '/../**/entities/*.entity{.ts,.js}'
+            ],
             synchronize: true,
             // logging: true,
         };
