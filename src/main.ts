@@ -15,6 +15,8 @@ async function bootstrap() {
     });
     const config = app.get<ConfigService>(ConfigService);
 
+    app.setGlobalPrefix('api');
+
     // Настройка статического хостинга для загруженных файлов
     app.useStaticAssets(join(__dirname, '..', 'uploads'), {
         prefix: '/uploads/',
