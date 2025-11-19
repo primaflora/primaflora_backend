@@ -19,9 +19,7 @@ if (!databaseUrl) {
 const dataSource = new DataSource({
     type: 'postgres',
     url: databaseUrl,
-    ssl: {
-        rejectUnauthorized: false,
-    },
+    ssl: false,
     entities: [
         __dirname + '/../src/entity/*.entity{.ts,.js}',
         __dirname + '/../src/**/entities/*.entity{.ts,.js}',
