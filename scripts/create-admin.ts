@@ -3,10 +3,22 @@ import * as bcrypt from 'bcrypt';
 import { UserEntity } from '../src/entity/user.entity';
 import { RoleEntity } from '../src/entity/role.entity';
 import { EUserRole } from '../src/enum/role.enum';
+import * as dotenv from 'dotenv';
+
+// Загружаем переменные окружения из .env файла
+dotenv.config();
+
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+    console.error('✗ Ошибка: DATABASE_URL не найден в переменных окружения');
+    console.error('  Создайте файл .env с переменной DATABASE_URL');
+    process.exit(1);
+}
 
 const dataSource = new DataSource({
     type: 'postgres',
-    url: process.env.DATABASE_URL || "postgres://u1kb9ilito1bl8:p2c094098c37805febae4bfa03e9b76847cac63680dab3cb1fec235cceedaa062@c7u1tn6bvvsodf.cluster-czz5s0kz4scl.eu-west-1.rds.amazonaws.com:5432/d8amr18lqtdt2n",
+    url: databaseUrl,
     ssl: {
         rejectUnauthorized: false,
     },
