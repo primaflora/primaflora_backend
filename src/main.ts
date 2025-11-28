@@ -19,7 +19,8 @@ async function bootstrap() {
 
     // Настройка статического хостинга для загруженных файлов
     // Используем /api/uploads/ чтобы nginx правильно проксировал на бекенд
-    app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    // process.cwd() возвращает рабочую директорию (корень проекта), работает одинаково везде
+    app.useStaticAssets(join(process.cwd(), 'uploads'), {
         prefix: '/api/uploads/',
     });
 
