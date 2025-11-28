@@ -29,6 +29,8 @@ import { UploadModule } from './upload/upload.module';
                 PORT: Joi.number().default(5000),
                 CORS_ORIGIN: Joi.string()
                     .default('http://localhost:3000'),
+                BASE_URL: Joi.string()
+                    .default('http://localhost:5000'),
             }),
             isGlobal: true,
         }),

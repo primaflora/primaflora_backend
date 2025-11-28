@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { extname } from 'path';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
@@ -13,6 +14,7 @@ export class UploadService {
   constructor(
     @InjectRepository(FileEntity)
     private readonly fileRepository: Repository<FileEntity>,
+    private readonly configService: ConfigService,
   ) {
     // Создаем папку uploads, если её нет
     if (!existsSync(this.uploadPath)) {
@@ -41,8 +43,10 @@ export class UploadService {
    * Генерирует URL для доступа к файлу
    */
   generateFileUrl(filename: string, req?: any): string {
-    const baseUrl = req ? `${req.protocol}://${req.get('host')}` : '';
-    return `${baseUrl}/uploads/${filename}`;
+    // Используем BASE_URL из конфигурации для правильного протокола (https на продакшене)
+    const baseUrl = this.configService.get<string>('BASE_URL') || 
+      (req ? `${req.protocol}://${req.get('host')}` : '');
+    return `${baseUrl}/api/uploads/${filename}`;
   }
 
   /**

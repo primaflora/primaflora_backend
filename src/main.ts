@@ -18,8 +18,9 @@ async function bootstrap() {
     app.setGlobalPrefix('api');
 
     // Настройка статического хостинга для загруженных файлов
+    // Используем /api/uploads/ чтобы nginx правильно проксировал на бекенд
     app.useStaticAssets(join(__dirname, '..', 'uploads'), {
-        prefix: '/uploads/',
+        prefix: '/api/uploads/',
     });
 
     app.use(cookieParser(config.get<string>('COOKIE_SECRET')));
